@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: incident-api
+  namespace: production
+  labels:
+    app: incident-api
+    tier: automation
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: incident-api
+  template:
+    metadata:
+      labels:
+        app: incident-api
+    spec:
+      containers:
+      - name: api
+        image: ghcr.io/vik9541/email-intelligence-platform:latest
+        command: ["python", "-m", "app.api.incident_response"]
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        env:
+        - name: SLACK_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: incident-secrets
+              key: slack-webhook
+        - name: PAGERDUTY_SERVICE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: incident-secrets
+              key: pagerduty-key
+        - name: INCIDENT_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: incident-secrets
+              key: api-token
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: incident-api
+  namespace: production
+  labels:
+    app: incident-api
+spec:
+  selector:
+    app: incident-api
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+---
+# Secret для API токенов (создать вручную)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: incident-secrets
+  namespace: production
+type: Opaque
+stringData:
+  slack-webhook: "https://hooks.slack.com/services/YOUR_WEBHOOK_URL"
+  pagerduty-key: "YOUR_PAGERDUTY_SERVICE_KEY"
+  api-token: "YOUR_INCIDENT_API_TOKEN"

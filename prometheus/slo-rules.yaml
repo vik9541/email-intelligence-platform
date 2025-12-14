@@ -1,0 +1,355 @@
+# 📊 PROMETHEUS SLO MONITORING RULES
+# Email Intelligence Platform - Production SLO Tracking
+
+groups:
+  - name: slo_availability
+    interval: 30s
+    rules:
+      # SLI: Availability (успешные запросы / все запросы)
+      - record: slo:email_service:availability:ratio_rate5m
+        expr: |
+          sum(rate(email_service_requests_total{status="success"}[5m]))
+          /
+          sum(rate(email_service_requests_total[5m]))
+      
+      # SLI: Latency P95 (95-й перцентиль)
+      - record: slo:email_service:latency:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(email_service_duration_ms_bucket[5m])) by (le)
+          )
+      
+      # SLI: Latency P99 (99-й перцентиль)
+      - record: slo:email_service:latency:p99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(email_service_duration_ms_bucket[5m])) by (le)
+          )
+      
+      # Error budget (30 дней)
+      - record: slo:email_service:error_budget_remaining
+        expr: |
+          1 - (
+            (1 - slo:email_service:availability:ratio_rate5m)
+            /
+            (1 - 0.999)
+          )
+
+  - name: slo_alerts_multi_burn_rate
+    interval: 30s
+    rules:
+      # ========================================
+      # P0: CRITICAL - Page on-call (5 min response)
+      # ========================================
+      
+      # Fast Burn (2% error budget/hour) - Критическая деградация
+      - alert: SLO_ErrorBudget_FastBurn_Critical
+        expr: |
+          (
+            slo:email_service:availability:ratio_rate5m < 0.999
+            and
+            slo:email_service:availability:ratio_rate5m < 0.98
+          )
+          or
+          (
+            slo:email_service:latency:p95 > 800
+            and
+            slo:email_service:latency:p95 > 2000
+          )
+        for: 2m
+        labels:
+          severity: critical
+          priority: P0
+          escalation: pagerduty
+        annotations:
+          summary: "🚨 P0: Критическая деградация SLO"
+          description: |
+            НЕМЕДЛЕННЫЕ ДЕЙСТВИЯ ТРЕБУЮТСЯ!
+            
+            Availability: {{ $value | humanizePercentage }}
+            Цель: 99.9%
+            
+            Или Latency P95: {{ $value }}ms
+            Цель: <800ms
+            
+            Error budget сгорает со скоростью 2%/час!
+            
+            Runbook: docs/P0_RUNBOOK_RU.md
+          dashboard: "https://grafana.97v.ru/d/email-platform-slo"
+          
+      # Availability упала ниже 99%
+      - alert: SLO_Availability_Below99_P0
+        expr: |
+          slo:email_service:availability:ratio_rate5m < 0.99
+        for: 1m
+        labels:
+          severity: critical
+          priority: P0
+          escalation: pagerduty
+        annotations:
+          summary: "🚨 P0: Availability упала ниже 99%"
+          description: |
+            Текущая availability: {{ $value | humanizePercentage }}
+            SLO цель: 99.9%
+            
+            Проверить:
+            1. kubectl get pods -n production
+            2. kubectl logs -f deployment/email-service
+            3. Kafka consumer lag
+            4. PostgreSQL connections
+            
+      # Latency P99 превысила 5 секунд
+      - alert: SLO_Latency_P99_Critical
+        expr: |
+          slo:email_service:latency:p99 > 5000
+        for: 2m
+        labels:
+          severity: critical
+          priority: P0
+          escalation: pagerduty
+        annotations:
+          summary: "🚨 P0: Latency P99 >5s (Критическая)"
+          description: |
+            P99 Latency: {{ $value }}ms
+            SLO цель: <2000ms
+            
+            Пользователи испытывают тайм-ауты!
+            
+      # Error rate >5%
+      - alert: SLO_ErrorRate_Above5Percent
+        expr: |
+          (
+            sum(rate(email_service_errors_total[5m]))
+            /
+            sum(rate(email_service_requests_total[5m]))
+          ) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+          priority: P0
+          escalation: pagerduty
+        annotations:
+          summary: "🚨 P0: Error rate >5%"
+          description: |
+            Error rate: {{ $value | humanizePercentage }}
+            Допустимо: <0.1%
+            
+            Возможные причины:
+            - Недавний deploy
+            - Проблемы с БД
+            - Kafka недоступен
+            
+      # ========================================
+      # P1: HIGH - Slack notification (30 min response)
+      # ========================================
+      
+      # Medium Burn (5% error budget/6h) - Быстрая деградация
+      - alert: SLO_ErrorBudget_MediumBurn_High
+        expr: |
+          slo:email_service:availability:ratio_rate5m < 0.999
+          and
+          slo:email_service:availability:ratio_rate5m >= 0.98
+        for: 10m
+        labels:
+          severity: high
+          priority: P1
+          escalation: slack
+        annotations:
+          summary: "⚠️ P1: Умеренная деградация SLO"
+          description: |
+            Availability: {{ $value | humanizePercentage }}
+            Цель: 99.9%
+            
+            Error budget сгорает со скоростью 5%/6ч
+            Расследование требуется в течение 30 минут
+            
+      # Latency P95 превысила целевое значение
+      - alert: SLO_Latency_P95_High
+        expr: |
+          slo:email_service:latency:p95 > 800
+          and
+          slo:email_service:latency:p95 <= 2000
+        for: 5m
+        labels:
+          severity: high
+          priority: P1
+          escalation: slack
+        annotations:
+          summary: "⚠️ P1: Latency P95 превысила SLO"
+          description: |
+            P95 Latency: {{ $value }}ms
+            SLO цель: <800ms
+            
+            Проверить:
+            - Email classifier performance
+            - PostgreSQL slow queries
+            - LLM inference queue
+            
+      # Kafka consumer lag >10k
+      - alert: SLO_KafkaLag_High
+        expr: |
+          kafka_consumer_lag{topic="email.received"} > 10000
+        for: 10m
+        labels:
+          severity: high
+          priority: P1
+          escalation: slack
+        annotations:
+          summary: "⚠️ P1: Kafka consumer lag >10k"
+          description: |
+            Lag: {{ $value }}
+            Topic: email.received
+            
+            Email обработка замедлена!
+            Рекомендация: Scale up email-consumer replicas
+            
+      # PostgreSQL connections >80%
+      - alert: SLO_PostgreSQL_Connections_High
+        expr: |
+          pg_stat_activity_count > 80
+        for: 5m
+        labels:
+          severity: high
+          priority: P1
+          escalation: slack
+        annotations:
+          summary: "⚠️ P1: PostgreSQL connections >80%"
+          description: |
+            Текущие подключения: {{ $value }}
+            Max connections: 100
+            
+            Возможна нехватка connections!
+            
+      # ========================================
+      # P2: MEDIUM - Email notification (next business day)
+      # ========================================
+      
+      # Slow Burn (10% error budget/3d) - Медленная деградация
+      - alert: SLO_ErrorBudget_SlowBurn_Medium
+        expr: |
+          slo:email_service:availability:ratio_rate5m < 0.999
+        for: 1h
+        labels:
+          severity: medium
+          priority: P2
+          escalation: email
+        annotations:
+          summary: "ℹ️ P2: Медленная деградация SLO"
+          description: |
+            Availability: {{ $value | humanizePercentage }}
+            Цель: 99.9%
+            
+            Error budget сгорает медленно (10%/3д)
+            Расследование в рабочие часы
+            
+      # Disk space warning
+      - alert: SLO_DiskSpace_Warning
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/"}
+            /
+            node_filesystem_size_bytes{mountpoint="/"}
+          ) < 0.2
+        for: 1h
+        labels:
+          severity: medium
+          priority: P2
+          escalation: email
+        annotations:
+          summary: "ℹ️ P2: Disk space <20%"
+          description: |
+            Доступно: {{ $value | humanizePercentage }}
+            
+            Запланировать очистку логов/кэша
+            
+      # Memory usage warning
+      - alert: SLO_Memory_Usage_High
+        expr: |
+          (
+            1 - (
+              node_memory_MemAvailable_bytes
+              /
+              node_memory_MemTotal_bytes
+            )
+          ) > 0.85
+        for: 15m
+        labels:
+          severity: medium
+          priority: P2
+          escalation: email
+        annotations:
+          summary: "ℹ️ P2: Memory usage >85%"
+          description: |
+            Использование памяти: {{ $value | humanizePercentage }}
+            
+            Мониторить на предмет memory leak
+
+  - name: slo_component_health
+    interval: 1m
+    rules:
+      # Email service pod down
+      - alert: Component_EmailService_Down
+        expr: |
+          up{job="email-service"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          priority: P0
+          component: email-service
+        annotations:
+          summary: "🚨 Email Service pod недоступен"
+          description: |
+            Email service не отвечает!
+            
+            kubectl get pods -n production
+            kubectl describe pod <pod-name> -n production
+            
+      # PostgreSQL down
+      - alert: Component_PostgreSQL_Down
+        expr: |
+          up{job="postgresql"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          priority: P0
+          component: database
+        annotations:
+          summary: "🚨 PostgreSQL недоступен"
+          description: |
+            База данных не отвечает!
+            
+            Проверить:
+            kubectl get pods -n production | grep postgres
+            kubectl logs -f postgres-0 -n production
+            
+      # Kafka broker down
+      - alert: Component_Kafka_Down
+        expr: |
+          up{job="kafka"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          priority: P0
+          component: kafka
+        annotations:
+          summary: "🚨 Kafka broker недоступен"
+          description: |
+            Kafka не отвечает!
+            
+            Email pipeline остановлен!
+            
+      # Redis down
+      - alert: Component_Redis_Down
+        expr: |
+          up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: high
+          priority: P1
+          component: redis
+        annotations:
+          summary: "⚠️ Redis недоступен"
+          description: |
+            Redis кэш не отвечает
+            
+            Degraded performance ожидается

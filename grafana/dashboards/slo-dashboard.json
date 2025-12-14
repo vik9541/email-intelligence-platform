@@ -1,0 +1,434 @@
+{
+  "dashboard": {
+    "title": "Email Platform SLO Dashboard",
+    "tags": ["slo", "email-platform", "production"],
+    "timezone": "Europe/Moscow",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "📊 SLO Status (30 дней)",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "slo:email_service:availability:ratio_rate5m",
+            "legendFormat": "Availability"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "orientation": "horizontal"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 0.98, "color": "orange" },
+                { "value": 0.999, "color": "green" }
+              ]
+            },
+            "unit": "percentunit",
+            "decimals": 3
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "⏱️ Latency P95 (SLO: <800ms)",
+        "type": "gauge",
+        "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "slo:email_service:latency:p95",
+            "legendFormat": "P95 Latency"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 800, "color": "orange" },
+                { "value": 2000, "color": "red" }
+              ]
+            },
+            "unit": "ms",
+            "min": 0,
+            "max": 3000
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "💰 Error Budget (30д)",
+        "type": "gauge",
+        "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "slo:email_service:error_budget_remaining",
+            "legendFormat": "Error Budget"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 0.25, "color": "orange" },
+                { "value": 0.5, "color": "yellow" },
+                { "value": 0.75, "color": "green" }
+              ]
+            },
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "🚨 Active Alerts",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "sum(ALERTS{alertstate=\"firing\", job=\"email-service\"})",
+            "legendFormat": "Firing Alerts"
+          }
+        ],
+        "options": {
+          "colorMode": "background"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1, "color": "orange" },
+                { "value": 3, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "📈 Availability Trend (7 дней)",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "slo:email_service:availability:ratio_rate5m",
+            "legendFormat": "Availability"
+          },
+          {
+            "expr": "0.999",
+            "legendFormat": "SLO Target (99.9%)"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percentunit",
+            "min": 0.98,
+            "max": 1.0
+          }
+        ],
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "id": 6,
+        "title": "⏱️ Latency Percentiles",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 4, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(email_service_duration_ms_bucket[5m])) by (le))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "slo:email_service:latency:p95",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "slo:email_service:latency:p99",
+            "legendFormat": "P99"
+          },
+          {
+            "expr": "800",
+            "legendFormat": "SLO P95 Target (800ms)"
+          },
+          {
+            "expr": "2000",
+            "legendFormat": "SLO P99 Target (2000ms)"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ms",
+            "min": 0
+          }
+        ],
+        "lines": true,
+        "fill": 0,
+        "linewidth": 2
+      },
+      {
+        "id": 7,
+        "title": "📊 Throughput (requests/sec)",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 10, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "sum(rate(email_service_requests_total[5m]))",
+            "legendFormat": "Total RPS"
+          },
+          {
+            "expr": "sum(rate(email_service_requests_total{status=\"success\"}[5m]))",
+            "legendFormat": "Success RPS"
+          },
+          {
+            "expr": "sum(rate(email_service_requests_total{status=\"error\"}[5m]))",
+            "legendFormat": "Error RPS"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "reqps",
+            "min": 0
+          }
+        ],
+        "lines": true,
+        "fill": 1,
+        "stack": false
+      },
+      {
+        "id": 8,
+        "title": "🎯 Classification Accuracy",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 10, "w": 6, "h": 3 },
+        "targets": [
+          {
+            "expr": "sum(rate(email_classification_correct_total[5m])) / sum(rate(email_classification_total[5m]))",
+            "legendFormat": "Accuracy"
+          }
+        ],
+        "options": {
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 0.7, "color": "orange" },
+                { "value": 0.95, "color": "green" }
+              ]
+            },
+            "unit": "percentunit",
+            "decimals": 2
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "⚡ ERP Actions Success Rate",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 10, "w": 6, "h": 3 },
+        "targets": [
+          {
+            "expr": "sum(rate(erp_actions_completed_total{status=\"success\"}[5m])) / sum(rate(erp_actions_completed_total[5m]))",
+            "legendFormat": "Success Rate"
+          }
+        ],
+        "options": {
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 0.9, "color": "orange" },
+                { "value": 0.98, "color": "green" }
+              ]
+            },
+            "unit": "percentunit",
+            "decimals": 2
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "📧 Kafka Consumer Lag",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 13, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "kafka_consumer_lag{topic=\"email.received\"}",
+            "legendFormat": "email.received lag"
+          },
+          {
+            "expr": "10000",
+            "legendFormat": "Warning Threshold (10k)"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "min": 0
+          }
+        ],
+        "lines": true,
+        "fill": 1
+      },
+      {
+        "id": 11,
+        "title": "💾 PostgreSQL Connections",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "pg_stat_activity_count",
+            "legendFormat": "Active Connections"
+          },
+          {
+            "expr": "80",
+            "legendFormat": "Warning Threshold (80)"
+          },
+          {
+            "expr": "100",
+            "legendFormat": "Max Connections (100)"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "min": 0,
+            "max": 110
+          }
+        ],
+        "lines": true,
+        "fill": 1
+      },
+      {
+        "id": 12,
+        "title": "🔥 Error Budget Burn Rate",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 19, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "(1 - slo:email_service:availability:ratio_rate5m) * 100",
+            "legendFormat": "Current Burn Rate (%/hour)"
+          },
+          {
+            "expr": "2",
+            "legendFormat": "Fast Burn Threshold (2%/hour)"
+          },
+          {
+            "expr": "0.83",
+            "legendFormat": "Medium Burn Threshold (5%/6h)"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "min": 0
+          }
+        ],
+        "lines": true,
+        "fill": 0
+      },
+      {
+        "id": 13,
+        "title": "🚀 Pod Health",
+        "type": "table",
+        "gridPos": { "x": 0, "y": 22, "w": 24, "h": 6 },
+        "targets": [
+          {
+            "expr": "up{job=\"email-service\"}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {},
+              "renameByName": {
+                "instance": "Pod",
+                "Value": "Status"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "datasource",
+          "type": "datasource",
+          "query": "prometheus"
+        },
+        {
+          "name": "namespace",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(up{job=\"email-service\"}, namespace)",
+          "current": {
+            "text": "production",
+            "value": "production"
+          }
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "datasource": "Prometheus",
+          "name": "Deployments",
+          "enable": true,
+          "iconColor": "green",
+          "expr": "changes(kube_deployment_status_observed_generation{namespace=\"$namespace\"}[5m]) > 0"
+        },
+        {
+          "datasource": "Prometheus",
+          "name": "Alerts",
+          "enable": true,
+          "iconColor": "red",
+          "expr": "ALERTS{alertstate=\"firing\", namespace=\"$namespace\"}"
+        }
+      ]
+    },
+    "time": {
+      "from": "now-7d",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
+    }
+  }
+}

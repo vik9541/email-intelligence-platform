@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: self-healing-automaton
+  namespace: production
+  labels:
+    app: self-healing-automaton
+    tier: automation
+spec:
+  replicas: 1  # Только 1 инстанс - stateful automaton
+  selector:
+    matchLabels:
+      app: self-healing-automaton
+  template:
+    metadata:
+      labels:
+        app: self-healing-automaton
+    spec:
+      serviceAccountName: self-healing-sa
+      containers:
+      - name: automaton
+        image: ghcr.io/vik9541/email-intelligence-platform:latest
+        command: ["python", "-m", "app.services.self_healing_automaton"]
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        env:
+        - name: PROMETHEUS_URL
+          value: "http://prometheus.monitoring.svc.cluster.local:9090"
+        - name: LOG_LEVEL
+          value: "INFO"
+        ports:
+        - name: metrics
+          containerPort: 8000
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+# Service для Prometheus scraping
+apiVersion: v1
+kind: Service
+metadata:
+  name: self-healing-automaton
+  namespace: production
+  labels:
+    app: self-healing-automaton
+spec:
+  selector:
+    app: self-healing-automaton
+  ports:
+  - name: metrics
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+---
+# ServiceAccount с правами для управления кластером
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: self-healing-sa
+  namespace: production
+---
+# ClusterRole для automaton
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: self-healing-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "deployments/scale"]
+  verbs: ["get", "list", "patch", "update"]
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: self-healing-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: self-healing-role
+subjects:
+- kind: ServiceAccount
+  name: self-healing-sa
+  namespace: production

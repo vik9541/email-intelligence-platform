@@ -1,0 +1,232 @@
+# 🚨 ALERTMANAGER CONFIGURATION
+# Email Intelligence Platform - Incident Response Automation
+
+global:
+  # Slack webhook для уведомлений
+  slack_api_url: 'https://hooks.slack.com/services/YOUR_WEBHOOK_URL'
+  
+  # SMTP для email уведомлений
+  smtp_from: 'alerts@97v.ru'
+  smtp_smarthost: 'smtp.97v.ru:587'
+  smtp_auth_username: 'alerts@97v.ru'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+# Маршрутизация алертов по приоритетам
+route:
+  # Группировка по кластеру, severity, alertname
+  group_by: ['cluster', 'severity', 'alertname']
+  
+  # Ожидание перед отправкой (накопление алертов)
+  group_wait: 10s
+  
+  # Интервал между группами
+  group_interval: 5m
+  
+  # Повтор уведомления
+  repeat_interval: 4h
+  
+  # Получатель по умолчанию
+  receiver: 'default-email'
+  
+  # Маршруты для разных приоритетов
+  routes:
+    # ========================================
+    # P0: CRITICAL - PagerDuty + Slack + Email
+    # ========================================
+    - match:
+        priority: P0
+      receiver: 'pagerduty-critical'
+      group_wait: 5s
+      group_interval: 1m
+      repeat_interval: 5m
+      continue: true
+      
+    - match:
+        priority: P0
+      receiver: 'slack-critical'
+      continue: true
+      
+    - match:
+        priority: P0
+      receiver: 'incident-webhook'
+      continue: false
+    
+    # ========================================
+    # P1: HIGH - Slack + Email
+    # ========================================
+    - match:
+        priority: P1
+      receiver: 'slack-high'
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 1h
+      continue: true
+      
+    - match:
+        priority: P1
+      receiver: 'email-oncall'
+      continue: false
+    
+    # ========================================
+    # P2: MEDIUM - Email только
+    # ========================================
+    - match:
+        priority: P2
+      receiver: 'email-team'
+      group_wait: 5m
+      group_interval: 1h
+      repeat_interval: 24h
+
+# Получатели уведомлений
+receivers:
+  # Default receiver
+  - name: 'default-email'
+    email_configs:
+      - to: 'devops@97v.ru'
+        headers:
+          Subject: '[Monitoring] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>{{ .GroupLabels.alertname }}</h2>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+  
+  # ========================================
+  # P0 Receivers
+  # ========================================
+  
+  # PagerDuty для P0 (вызов дежурного)
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        severity: 'critical'
+        description: '{{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ .Alerts.Firing | len }}'
+          resolved: '{{ .Alerts.Resolved | len }}'
+          description: '{{ .CommonAnnotations.description }}'
+          dashboard: '{{ .CommonAnnotations.dashboard }}'
+  
+  # Slack канал #incidents для P0
+  - name: 'slack-critical'
+    slack_configs:
+      - channel: '#incidents'
+        color: 'danger'
+        title: '🚨 P0 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          *Summary:* {{ .CommonAnnotations.summary }}
+          
+          *Severity:* {{ .CommonLabels.severity }}
+          *Priority:* {{ .CommonLabels.priority }}
+          
+          *Description:*
+          {{ .CommonAnnotations.description }}
+          
+          *Dashboard:* {{ .CommonAnnotations.dashboard }}
+          
+          *Action Required:* Немедленное реагирование (5 мин)
+        short_fields: true
+        actions:
+          - type: button
+            text: 'Acknowledge'
+            url: '{{ .CommonAnnotations.dashboard }}'
+          - type: button
+            text: 'Runbook'
+            url: 'https://github.com/vik9541/email-intelligence-platform/blob/main/docs/P0_RUNBOOK_RU.md'
+  
+  # Webhook для автоматического создания инцидента
+  - name: 'incident-webhook'
+    webhook_configs:
+      - url: 'http://incident-api.production.svc.cluster.local:8080/webhook/alert'
+        send_resolved: true
+        http_config:
+          bearer_token: '${INCIDENT_API_TOKEN}'
+  
+  # ========================================
+  # P1 Receivers
+  # ========================================
+  
+  # Slack канал #alerts для P1
+  - name: 'slack-high'
+    slack_configs:
+      - channel: '#alerts'
+        color: 'warning'
+        title: '⚠️ P1 HIGH: {{ .GroupLabels.alertname }}'
+        text: |
+          *Summary:* {{ .CommonAnnotations.summary }}
+          
+          *Description:*
+          {{ .CommonAnnotations.description }}
+          
+          *Action Required:* Расследование в течение 30 минут
+        short_fields: true
+  
+  # Email для дежурной команды (P1)
+  - name: 'email-oncall'
+    email_configs:
+      - to: 'oncall@97v.ru'
+        headers:
+          Subject: '⚠️ [P1 HIGH] {{ .GroupLabels.alertname }}'
+          Priority: 'high'
+        html: |
+          <h2 style="color: orange;">⚠️ P1 HIGH Priority Alert</h2>
+          
+          <h3>{{ .CommonAnnotations.summary }}</h3>
+          
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Priority:</strong> {{ .CommonLabels.priority }}</p>
+          
+          <h4>Description:</h4>
+          <pre>{{ .CommonAnnotations.description }}</pre>
+          
+          <p><strong>Dashboard:</strong> <a href="{{ .CommonAnnotations.dashboard }}">{{ .CommonAnnotations.dashboard }}</a></p>
+          
+          <p><em>Action Required: Расследование в течение 30 минут</em></p>
+  
+  # ========================================
+  # P2 Receivers
+  # ========================================
+  
+  # Email для всей команды (P2)
+  - name: 'email-team'
+    email_configs:
+      - to: 'devops@97v.ru, sre@97v.ru'
+        headers:
+          Subject: 'ℹ️ [P2 MEDIUM] {{ .GroupLabels.alertname }}'
+          Priority: 'normal'
+        html: |
+          <h2 style="color: blue;">ℹ️ P2 MEDIUM Priority Alert</h2>
+          
+          <h3>{{ .CommonAnnotations.summary }}</h3>
+          
+          <p><strong>Description:</strong></p>
+          <pre>{{ .CommonAnnotations.description }}</pre>
+          
+          <p><em>Action Required: Расследование в рабочие часы</em></p>
+
+# Подавление алертов (silence)
+inhibit_rules:
+  # Если email-service down, не отправлять алерты о latency
+  - source_match:
+      alertname: 'Component_EmailService_Down'
+    target_match_re:
+      alertname: 'SLO_Latency_.*'
+    equal: ['cluster', 'namespace']
+  
+  # Если PostgreSQL down, не отправлять алерты о connections
+  - source_match:
+      alertname: 'Component_PostgreSQL_Down'
+    target_match:
+      alertname: 'SLO_PostgreSQL_Connections_High'
+    equal: ['cluster']
+  
+  # Если Kafka down, не отправлять алерты о lag
+  - source_match:
+      alertname: 'Component_Kafka_Down'
+    target_match:
+      alertname: 'SLO_KafkaLag_High'
+    equal: ['cluster']
+
+# Шаблоны для уведомлений
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
