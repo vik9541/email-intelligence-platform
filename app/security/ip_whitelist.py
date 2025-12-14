@@ -66,8 +66,8 @@ async def verify_admin_access(request: Request):
             detail={
                 "error": "Access denied",
                 "reason": "IP address not whitelisted for admin access",
-                "client_ip": client_ip
-            }
+                "client_ip": client_ip,
+            },
         )
 
     return True
@@ -102,12 +102,9 @@ async def verify_internal_access(request: Request):
             detail={
                 "error": "Access denied",
                 "reason": "Internal endpoints only accessible from private network",
-                "client_ip": client_ip
-            }
+                "client_ip": client_ip,
+            },
         )
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "Invalid IP address"}
-        ) from e
+        raise HTTPException(status_code=400, detail={"error": "Invalid IP address"}) from e

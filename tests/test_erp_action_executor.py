@@ -1,4 +1,5 @@
 """Tests for ERPActionExecutor."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -16,6 +17,7 @@ from app.services.erp_action_executor import ERPActionExecutor, create_email_act
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def customer_id() -> UUID:
@@ -124,6 +126,7 @@ def erp_order(customer_id: UUID) -> ERPOrder:
 # ============================================================================
 # Tests: Success scenario
 # ============================================================================
+
 
 class TestERPActionExecutorSuccess:
     """Tests for successful scenarios."""
@@ -249,6 +252,7 @@ class TestERPActionExecutorSuccess:
 # Tests: Parsing errors
 # ============================================================================
 
+
 class TestERPActionExecutorParsingErrors:
     """Tests for parsing error scenarios."""
 
@@ -311,6 +315,7 @@ class TestERPActionExecutorParsingErrors:
 # ============================================================================
 # Tests: ERP errors
 # ============================================================================
+
 
 class TestERPActionExecutorERPErrors:
     """Tests for ERP error scenarios."""
@@ -403,6 +408,7 @@ class TestERPActionExecutorERPErrors:
 # ============================================================================
 # Tests: Text parsing
 # ============================================================================
+
 
 class TestTextParsing:
     """Tests for text parsing functionality."""
@@ -498,6 +504,7 @@ class TestTextParsing:
 # Tests: EmailAction model
 # ============================================================================
 
+
 class TestEmailActionModel:
     """Tests for EmailAction model methods."""
 
@@ -556,6 +563,7 @@ class TestEmailActionModel:
 # Tests: Helper functions
 # ============================================================================
 
+
 class TestHelperFunctions:
     """Tests for helper functions."""
 
@@ -587,6 +595,7 @@ class TestHelperFunctions:
 # ============================================================================
 # Tests: ERP Client
 # ============================================================================
+
 
 class TestERPClient:
     """Tests for ERPClient."""
@@ -644,6 +653,7 @@ class TestERPClient:
 # ============================================================================
 # Tests: Update Invoice
 # ============================================================================
+
 
 class TestUpdateInvoice:
     """Tests for update_invoice functionality."""
@@ -798,6 +808,7 @@ class TestUpdateInvoice:
 # ============================================================================
 # Tests: Create Ticket
 # ============================================================================
+
 
 class TestCreateTicket:
     """Tests for create_ticket functionality."""

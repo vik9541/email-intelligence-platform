@@ -19,12 +19,14 @@ logger.setLevel(logging.INFO)
 def log_event(event_type: str, message: str, **kwargs):
     """Log structured events for ELK."""
     logger.info(
-        json.dumps({
-            "event_type": event_type,
-            "message": message,
-            "timestamp": datetime.now().isoformat(),
-            **kwargs
-        })
+        json.dumps(
+            {
+                "event_type": event_type,
+                "message": message,
+                "timestamp": datetime.now().isoformat(),
+                **kwargs,
+            }
+        )
     )
 
 

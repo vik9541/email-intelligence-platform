@@ -6,86 +6,56 @@ from prometheus_client import Counter, Gauge, Histogram, Info
 
 # Business metrics
 emails_processed_total = Counter(
-    'emails_processed_total',
-    'Total emails processed',
-    ['status', 'sender_domain', 'action_type']
+    "emails_processed_total", "Total emails processed", ["status", "sender_domain", "action_type"]
 )
 
 processing_time = Histogram(
-    'email_processing_time_seconds',
-    'Email processing time distribution',
-    ['status', 'action_type'],
-    buckets=(0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0)
+    "email_processing_time_seconds",
+    "Email processing time distribution",
+    ["status", "action_type"],
+    buckets=(0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0),
 )
 
 success_rate = Gauge(
-    'email_success_rate',
-    'Percentage of successful email processing (24h rolling)'
+    "email_success_rate", "Percentage of successful email processing (24h rolling)"
 )
 
-top_senders = Gauge(
-    'email_top_senders',
-    'Email count by top sender domains',
-    ['sender_domain']
-)
+top_senders = Gauge("email_top_senders", "Email count by top sender domains", ["sender_domain"])
 
-peak_hours = Gauge(
-    'email_peak_hours',
-    'Email processing count by hour',
-    ['hour']
-)
+peak_hours = Gauge("email_peak_hours", "Email processing count by hour", ["hour"])
 
 action_distribution = Counter(
-    'email_action_distribution',
-    'Distribution of email actions',
-    ['action_type', 'status']
+    "email_action_distribution", "Distribution of email actions", ["action_type", "status"]
 )
 
 average_latency = Gauge(
-    'email_average_latency_ms',
-    'Average processing latency (last 5 min)',
-    ['action_type']
+    "email_average_latency_ms", "Average processing latency (last 5 min)", ["action_type"]
 )
 
-queue_depth = Gauge(
-    'email_queue_depth',
-    'Current processing queue depth'
-)
+queue_depth = Gauge("email_queue_depth", "Current processing queue depth")
 
 retry_count = Counter(
-    'email_retry_total',
-    'Total retries for failed processing',
-    ['action_type', 'error_type']
+    "email_retry_total", "Total retries for failed processing", ["action_type", "error_type"]
 )
 
 # System metrics
-active_workers = Gauge(
-    'active_workers',
-    'Number of active processing workers'
-)
+active_workers = Gauge("active_workers", "Number of active processing workers")
 
-cache_hit_rate = Gauge(
-    'cache_hit_rate',
-    'Cache hit rate percentage'
-)
+cache_hit_rate = Gauge("cache_hit_rate", "Cache hit rate percentage")
 
 database_query_duration = Histogram(
-    'database_query_duration_seconds',
-    'Database query duration',
-    ['query_type'],
-    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0)
+    "database_query_duration_seconds",
+    "Database query duration",
+    ["query_type"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0),
 )
 
 # Application info
-app_info = Info('email_intelligence_app', 'Application information')
+app_info = Info("email_intelligence_app", "Application information")
 
 
 def track_email_processing(
-    email_id: str,
-    sender: str,
-    status: str,
-    duration: float,
-    action_type: str = "unknown"
+    email_id: str, sender: str, status: str, duration: float, action_type: str = "unknown"
 ):
     """Track email processing metrics.
 
@@ -97,20 +67,15 @@ def track_email_processing(
         action_type: Type of action performed
     """
     # Extract sender domain
-    sender_domain = sender.split('@')[1] if '@' in sender else 'unknown'
+    sender_domain = sender.split("@")[1] if "@" in sender else "unknown"
 
     # Track total processed
     emails_processed_total.labels(
-        status=status,
-        sender_domain=sender_domain,
-        action_type=action_type
+        status=status, sender_domain=sender_domain, action_type=action_type
     ).inc()
 
     # Track processing time
-    processing_time.labels(
-        status=status,
-        action_type=action_type
-    ).observe(duration)
+    processing_time.labels(status=status, action_type=action_type).observe(duration)
 
     # Update hourly peaks
     hour = datetime.now().hour
@@ -120,10 +85,7 @@ def track_email_processing(
     top_senders.labels(sender_domain=sender_domain).inc()
 
     # Track action distribution
-    action_distribution.labels(
-        action_type=action_type,
-        status=status
-    ).inc()
+    action_distribution.labels(action_type=action_type, status=status).inc()
 
 
 def track_retry(action_type: str, error_type: str):
@@ -133,10 +95,7 @@ def track_retry(action_type: str, error_type: str):
         action_type: Type of action being retried
         error_type: Type of error that caused retry
     """
-    retry_count.labels(
-        action_type=action_type,
-        error_type=error_type
-    ).inc()
+    retry_count.labels(action_type=action_type, error_type=error_type).inc()
 
 
 def update_success_rate(success_count: int, total_count: int):
@@ -209,12 +168,14 @@ def set_app_info(version: str, environment: str, region: str):
         environment: Deployment environment
         region: Deployment region
     """
-    app_info.info({
-        'version': version,
-        'environment': environment,
-        'region': region,
-        'build_time': datetime.now().isoformat()
-    })
+    app_info.info(
+        {
+            "version": version,
+            "environment": environment,
+            "region": region,
+            "build_time": datetime.now().isoformat(),
+        }
+    )
 
 
 # Analytics aggregation functions
@@ -226,10 +187,10 @@ class MetricsAggregator:
         """Get hourly processing statistics."""
         # This would query Prometheus for hourly aggregates
         return {
-            'current_hour': datetime.now().hour,
-            'emails_processed': 0,  # Would come from Prometheus query
-            'success_rate': 0.0,
-            'average_latency_ms': 0.0
+            "current_hour": datetime.now().hour,
+            "emails_processed": 0,  # Would come from Prometheus query
+            "success_rate": 0.0,
+            "average_latency_ms": 0.0,
         }
 
     @staticmethod
@@ -237,20 +198,20 @@ class MetricsAggregator:
         """Get top email senders."""
         # This would query Prometheus topk() function
         return {
-            'timestamp': datetime.now().isoformat(),
-            'top_senders': []  # Would come from Prometheus query
+            "timestamp": datetime.now().isoformat(),
+            "top_senders": [],  # Would come from Prometheus query
         }
 
     @staticmethod
     def get_daily_summary() -> dict:
         """Get daily summary statistics."""
         return {
-            'date': datetime.now().date().isoformat(),
-            'total_processed': 0,
-            'success_count': 0,
-            'failure_count': 0,
-            'success_rate': 0.0,
-            'average_latency_ms': 0.0,
-            'peak_hour': 0,
-            'total_retries': 0
+            "date": datetime.now().date().isoformat(),
+            "total_processed": 0,
+            "success_count": 0,
+            "failure_count": 0,
+            "success_rate": 0.0,
+            "average_latency_ms": 0.0,
+            "peak_hour": 0,
+            "total_retries": 0,
         }

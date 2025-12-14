@@ -17,7 +17,7 @@ class EmailProcessingUser(HttpUser):
             "email_id": f"test-{random.randint(1, 10000)}",
             "sender": f"user{random.randint(1, 1000)}@example.com",
             "subject": "Test email",
-            "body": "This is a test email " * random.randint(1, 10)
+            "body": "This is a test email " * random.randint(1, 10),
         }
         self.client.post("/api/observations/analyze", json=payload)
 
@@ -45,7 +45,7 @@ class EmailBurstUser(HttpUser):
                 "email_id": f"burst-{random.randint(1, 100000)}",
                 "sender": f"burst{i}@example.com",
                 "subject": "Burst email",
-                "body": "Burst test"
+                "body": "Burst test",
             }
             self.client.post("/api/observations/analyze", json=payload)
 
@@ -62,9 +62,11 @@ class StressTestUser(HttpUser):
             "email_id": f"stress-{random.randint(1, 1000000)}",
             "sender": "stress@example.com",
             "subject": "Stress test",
-            "body": "X" * random.randint(100, 1000)
+            "body": "X" * random.randint(100, 1000),
         }
-        with self.client.post("/api/observations/analyze", json=payload, catch_response=True) as response:
+        with self.client.post(
+            "/api/observations/analyze", json=payload, catch_response=True
+        ) as response:
             if response.status_code != 200:
                 response.failure(f"Failed with status {response.status_code}")
             elif response.elapsed.total_seconds() > 2.0:

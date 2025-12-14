@@ -1,37 +1,23 @@
 """Prometheus monitoring metrics."""
 
-
 from prometheus_client import Counter, Gauge, Histogram
 
 # Metrics
 http_requests_total = Counter(
-    'http_requests_total',
-    'Total HTTP requests',
-    ['method', 'endpoint', 'status']
+    "http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]
 )
 
 http_request_duration = Histogram(
-    'http_request_duration_seconds',
-    'HTTP request duration',
-    ['method', 'endpoint']
+    "http_request_duration_seconds", "HTTP request duration", ["method", "endpoint"]
 )
 
 email_processing_duration = Histogram(
-    'email_processing_duration_seconds',
-    'Email processing duration',
-    ['status']
+    "email_processing_duration_seconds", "Email processing duration", ["status"]
 )
 
-active_connections = Gauge(
-    'active_connections',
-    'Active database connections'
-)
+active_connections = Gauge("active_connections", "Active database connections")
 
-error_count = Counter(
-    'errors_total',
-    'Total errors',
-    ['error_type']
-)
+error_count = Counter("errors_total", "Total errors", ["error_type"])
 
 
 async def track_request(method: str, endpoint: str, status: int, duration: float):

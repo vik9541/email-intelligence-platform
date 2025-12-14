@@ -17,16 +17,11 @@ class RateLimitService:
     async def init(self):
         """Initialize Redis connection."""
         self.redis_client = await redis.from_url(
-            self.redis_url,
-            encoding="utf-8",
-            decode_responses=True
+            self.redis_url, encoding="utf-8", decode_responses=True
         )
 
     async def check_rate_limit(
-        self,
-        request: Request,
-        requests_per_minute: int = 100,
-        requests_per_second: int = 1000
+        self, request: Request, requests_per_minute: int = 100, requests_per_second: int = 1000
     ) -> bool:
         """Check if request should be allowed based on rate limits."""
 
@@ -52,8 +47,8 @@ class RateLimitService:
                     "error": "Rate limit exceeded",
                     "limit": requests_per_minute,
                     "window": "60 seconds",
-                    "retry_after": 60
-                }
+                    "retry_after": 60,
+                },
             )
 
         # Per-second limit (DDoS protection)
@@ -70,8 +65,8 @@ class RateLimitService:
                 detail={
                     "error": "DDoS protection triggered",
                     "detail": "Too many requests per second",
-                    "retry_after": 1
-                }
+                    "retry_after": 1,
+                },
             )
 
         return True
@@ -94,7 +89,7 @@ class BruteForceProtection:
         self,
         redis_url: str = "redis://localhost:6379",
         max_attempts: int = 5,
-        lockout_time: int = 900  # 15 minutes
+        lockout_time: int = 900,  # 15 minutes
     ):
         self.redis_url = redis_url
         self.max_attempts = max_attempts
@@ -105,9 +100,7 @@ class BruteForceProtection:
         """Initialize Redis connection."""
         if not self.redis_client:
             self.redis_client = await redis.from_url(
-                self.redis_url,
-                encoding="utf-8",
-                decode_responses=True
+                self.redis_url, encoding="utf-8", decode_responses=True
             )
 
     async def check_login_attempt(self, user_id: str, success: bool) -> bool:
@@ -134,8 +127,8 @@ class BruteForceProtection:
                 detail={
                     "error": "Account temporarily locked",
                     "reason": "Too many failed login attempts",
-                    "retry_after": ttl
-                }
+                    "retry_after": ttl,
+                },
             )
 
         return False
