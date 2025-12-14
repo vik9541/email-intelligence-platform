@@ -1,0 +1,81 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: detect-private-key
+        name: Detect Private Keys
+      - id: check-added-large-files
+        name: Check Large Files
+        args: ['--maxkb=5000']
+      - id: check-json
+        name: Validate JSON
+      - id: check-yaml
+        name: Validate YAML
+        args: ['--unsafe']
+      - id: check-merge-conflict
+        name: Check Merge Conflicts
+      - id: end-of-file-fixer
+        name: Fix End of Files
+      - id: trailing-whitespace
+        name: Trim Trailing Whitespace
+      - id: mixed-line-ending
+        name: Fix Line Endings
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: '1.7.5'
+    hooks:
+      - id: bandit
+        name: Bandit Security Scan
+        args: ['-c', '.bandit', '-r', 'app/', '-q']
+        language_version: python3
+
+  - repo: https://github.com/psf/black
+    rev: 23.12.0
+    hooks:
+      - id: black
+        name: Black Code Formatter
+        language_version: python3
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort Import Sorter
+        args: ['--profile', 'black']
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+        name: Flake8 Linter
+        args: ['--max-line-length=120', '--extend-ignore=E203,W503']
+
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.63.2
+    hooks:
+      - id: trufflehog
+        name: TruffleHog Secret Scan
+        entry: trufflehog filesystem
+        args: ['--directory=.', '--only-verified', '--fail']
+        stages: [commit]
+
+  - repo: https://github.com/python-poetry/poetry
+    rev: '1.7.0'
+    hooks:
+      - id: poetry-check
+        name: Poetry Check
+      - id: poetry-lock
+        name: Poetry Lock Check
+        args: ['--check']
+
+  - repo: local
+    hooks:
+      - id: custom-security-check
+        name: Custom Security Check
+        entry: bash scripts/pre-commit-security-check.sh
+        language: system
+        pass_filenames: false
+        stages: [commit]
+
+default_language_version:
+  python: python3.11

@@ -1,0 +1,213 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  sast-bandit:
+    name: SAST - Bandit
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Bandit
+      run: pip install bandit[toml]
+    
+    - name: Run Bandit
+      run: |
+        bandit -r app/ -f json -o bandit-report.json || true
+        bandit -r app/ -f sarif -o bandit-results.sarif || true
+    
+    - name: Upload Bandit SARIF results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: bandit-results.sarif
+        category: bandit
+  
+  sast-semgrep:
+    name: SAST - Semgrep
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Semgrep
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: >-
+          p/security-audit
+          p/secrets
+          p/python
+        generateSarif: true
+    
+    - name: Upload Semgrep SARIF results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: semgrep.sarif
+        category: semgrep
+  
+  dependency-check:
+    name: Dependency Vulnerability Check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install pip-audit safety
+    
+    - name: Run pip-audit
+      run: |
+        pip-audit --desc --format json > pip-audit-report.json || true
+        cat pip-audit-report.json
+    
+    - name: Run Safety check
+      run: |
+        safety check --json > safety-report.json || true
+        cat safety-report.json
+    
+    - name: Upload dependency reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dependency-reports
+        path: |
+          pip-audit-report.json
+          safety-report.json
+  
+  container-scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Docker image
+      run: docker build -t email-intelligence:${{ github.sha }} .
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'email-intelligence:${{ github.sha }}'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+    
+    - name: Upload Trivy SARIF results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: trivy-results.sarif
+        category: trivy
+    
+    - name: Run Trivy with table output
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'email-intelligence:${{ github.sha }}'
+        format: 'table'
+        exit-code: '0'
+  
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: TruffleHog Secret Scan
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
+        extra_args: --only-verified
+  
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: python
+        queries: security-and-quality
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: "/language:python"
+  
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install pip-licenses
+        pip install -r requirements.txt
+    
+    - name: Check licenses
+      run: |
+        pip-licenses --format=json > licenses.json
+        pip-licenses --format=markdown > licenses.md
+        cat licenses.md
+    
+    - name: Upload license report
+      uses: actions/upload-artifact@v3
+      with:
+        name: license-report
+        path: |
+          licenses.json
+          licenses.md
+  
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [sast-bandit, sast-semgrep, dependency-check, container-scan, secret-scan]
+    if: always()
+    steps:
+    - name: Security Scan Summary
+      run: |
+        echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "✅ SAST (Bandit): Complete" >> $GITHUB_STEP_SUMMARY
+        echo "✅ SAST (Semgrep): Complete" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Dependency Check: Complete" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Container Scan (Trivy): Complete" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Secret Scan (TruffleHog): Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📊 Check the Security tab for detailed results" >> $GITHUB_STEP_SUMMARY

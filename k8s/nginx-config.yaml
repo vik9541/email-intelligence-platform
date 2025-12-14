@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: default
+data:
+  nginx.conf: |
+    # Rate limiting zones
+    limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;
+    limit_req_zone $binary_remote_addr zone=api:10m rate=100r/m;
+    limit_req_zone $binary_remote_addr zone=admin:10m rate=10r/m;
+    limit_req_status 429;
+    
+    # Connection limiting
+    limit_conn_zone $binary_remote_addr zone=addr:10m;
+    
+    server {
+      listen 80;
+      server_name email-intelligence.example.com;
+      
+      # Security headers
+      add_header X-Frame-Options "SAMEORIGIN" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Referrer-Policy "no-referrer-when-downgrade" always;
+      
+      # General rate limiting
+      limit_req zone=general burst=20 nodelay;
+      limit_conn addr 10;
+      
+      # DDoS protection - timeouts
+      client_body_timeout 10s;
+      client_header_timeout 10s;
+      keepalive_timeout 10s;
+      send_timeout 10s;
+      
+      # DDoS protection - request size limits
+      client_max_body_size 10m;
+      client_body_buffer_size 128k;
+      client_header_buffer_size 1k;
+      large_client_header_buffers 4 8k;
+      
+      # API endpoints
+      location /api/ {
+        limit_req zone=api burst=50 nodelay;
+        
+        # Proxy settings
+        proxy_pass http://email-intelligence:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Timeouts
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 10s;
+        proxy_read_timeout 30s;
+      }
+      
+      # Admin endpoints (stricter limits)
+      location /api/admin/ {
+        limit_req zone=admin burst=5 nodelay;
+        
+        # IP whitelist (example)
+        allow 192.168.1.0/24;
+        allow 10.0.0.0/8;
+        deny all;
+        
+        proxy_pass http://email-intelligence:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      }
+      
+      # Health check (no rate limit)
+      location /health {
+        proxy_pass http://email-intelligence:8000;
+        access_log off;
+      }
+      
+      # Metrics (internal only)
+      location /metrics {
+        allow 10.0.0.0/8;
+        deny all;
+        
+        proxy_pass http://email-intelligence:8000;
+        access_log off;
+      }
+      
+      # Block common attack patterns
+      location ~* \.(git|env|ini|conf|log)$ {
+        deny all;
+      }
+      
+      # Custom error pages
+      error_page 429 /429.html;
+      location = /429.html {
+        root /usr/share/nginx/html;
+        internal;
+      }
+    }

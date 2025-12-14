@@ -1,0 +1,240 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 50},
+              {"color": "red", "value": 100}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{endpoint='/api/observations/analyze'}[5m]) * 60",
+          "refId": "A"
+        }
+      ],
+      "title": "Throughput (emails/min)",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 500},
+              {"color": "red", "value": 1000}
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) * 1000",
+          "refId": "A"
+        }
+      ],
+      "title": "P95 Latency (ms)",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 95},
+              {"color": "green", "value": 99}
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "expr": "(1 - (sum(rate(errors_total[5m])) / sum(rate(http_requests_total[5m])))) * 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Success Rate (%)",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 80},
+              {"color": "red", "value": 90}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "expr": "active_connections",
+          "refId": "A"
+        }
+      ],
+      "title": "Active DB Connections",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 8},
+      "id": 5,
+      "targets": [
+        {
+          "expr": "increase(emails_processed_total[24h])",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Emails Processed (24h)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 8},
+      "id": 6,
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{pod=~'email-intelligence.*'}[5m]) * 100",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Pod CPU Usage (%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 17},
+      "id": 7,
+      "targets": [
+        {
+          "expr": "container_memory_usage_bytes{pod=~'email-intelligence.*'} / 1024 / 1024",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Pod Memory Usage (MB)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 17},
+      "id": 8,
+      "targets": [
+        {
+          "expr": "(1 - (increase(kube_pod_container_status_restarts_total{pod=~'email-intelligence.*'}[24h]) / 24)) * 100",
+          "legendFormat": "Uptime",
+          "refId": "A"
+        }
+      ],
+      "title": "System Uptime (%)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 27,
+  "style": "dark",
+  "tags": ["email-intelligence", "production"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "utc",
+  "title": "Email Intelligence Platform - Production Dashboard",
+  "uid": "email-intelligence-prod",
+  "version": 1
+}
