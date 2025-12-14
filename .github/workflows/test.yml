@@ -34,31 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
@@ -78,11 +53,6 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: 🧪 Run pytest
-        env:
-          DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379/0
-          TESTING: "true"
-          SECRET_KEY: "test-secret-key-for-ci"
         run: |
           pytest tests/ -v --tb=short -x
 
