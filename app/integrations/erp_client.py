@@ -4,9 +4,13 @@ ERP API РєР»РёРµРЅС‚ РґР»СЏ РІР·Р°РёРјРѕРґРµ�
 
 import logging
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from app.schemas.erp_schemas import ERPOrder, OrderItem, OrderStatus
+
+if TYPE_CHECKING:
+    from app.schemas.erp_schemas import ERPInvoice, ERPTicket
 
 logger = logging.getLogger(__name__)
 

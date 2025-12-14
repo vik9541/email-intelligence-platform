@@ -106,8 +106,8 @@ async def verify_internal_access(request: Request):
             }
         )
 
-    except ValueError:
+    except ValueError as e:
         raise HTTPException(
             status_code=400,
             detail={"error": "Invalid IP address"}
-        )
+        ) from e
