@@ -1,4 +1,5 @@
 """ERPActionExecutor - execute ERP actions based on email analysis."""
+
 import logging
 import re
 from datetime import UTC, datetime
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class OrderParsingError(Exception):
     """Order parsing error."""
+
     pass
 
 

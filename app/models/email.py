@@ -1,6 +1,7 @@
 """
 ORM модель Email.
 """
+
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Column, DateTime, String, Text
@@ -11,6 +12,7 @@ from app.models.base import Base
 
 class Email(Base):
     """ORM модель для таблицы emails."""
+
     __tablename__ = "emails"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)

@@ -1,6 +1,7 @@
-﻿"""
+"""
 ERP API РєР»РёРµРЅС‚ РґР»СЏ РІР·Р°РёРјРѕРґРµР№СЃС‚РІРёСЏ СЃ ERP СЃРёСЃС‚РµРјРѕР№.
 """
+
 import logging
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -12,16 +13,19 @@ logger = logging.getLogger(__name__)
 
 class ERPClientError(Exception):
     """Р‘Р°Р·РѕРІРѕРµ РёСЃРєР»СЋС‡РµРЅРёРµ РґР»СЏ РѕС€РёР±РѕРє ERP РєР»РёРµРЅС‚Р°."""
+
     pass
 
 
 class ERPConnectionError(ERPClientError):
     """РћС€РёР±РєР° РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє ERP."""
+
     pass
 
 
 class ERPValidationError(ERPClientError):
     """РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё РґР°РЅРЅС‹С… РІ ERP."""
+
     pass
 
 
@@ -169,8 +173,9 @@ class ERPClient:
             ERPValidationError: сли статус невалидный
             ERPClientError: ругие ошибки ERP
         """
-        from app.schemas.erp_schemas import ERPInvoice, InvoiceStatus
         from datetime import UTC, datetime
+
+        from app.schemas.erp_schemas import ERPInvoice, InvoiceStatus
 
         logger.info(
             "Updating invoice in ERP",
@@ -187,7 +192,7 @@ class ERPClient:
             raise ERPValidationError(f"Invalid invoice status: {status}")
 
         # STUB:  реальной реализации - HTTP запрос к ERP API
-        self._invoice_counter = getattr(self, '_invoice_counter', 0) + 1
+        self._invoice_counter = getattr(self, "_invoice_counter", 0) + 1
         invoice_number = f"INV-{invoice_id.hex[:8].upper()}"
 
         invoice = ERPInvoice(
@@ -236,8 +241,9 @@ class ERPClient:
             ERPValidationError: сли данные невалидны
             ERPClientError: ругие ошибки ERP
         """
-        from app.schemas.erp_schemas import ERPTicket, TicketPriority, TicketStatus
         from datetime import UTC, datetime
+
+        from app.schemas.erp_schemas import ERPTicket, TicketPriority, TicketStatus
 
         logger.info(
             "Creating ticket in ERP",
@@ -258,7 +264,7 @@ class ERPClient:
             ticket_priority = TicketPriority.MEDIUM
 
         # STUB:  реальной реализации - HTTP запрос к ERP API
-        self._ticket_counter = getattr(self, '_ticket_counter', 0) + 1
+        self._ticket_counter = getattr(self, "_ticket_counter", 0) + 1
         ticket_id = uuid4()
         ticket_number = f"TKT-{source_email_id or 0:06d}-{self._ticket_counter:04d}"
 

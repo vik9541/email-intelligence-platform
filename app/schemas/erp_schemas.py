@@ -1,9 +1,10 @@
-﻿"""
+"""
 Pydantic СЃС…РµРјС‹ РґР»СЏ ERP РёРЅС‚РµРіСЂР°С†РёРё.
 """
+
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -11,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ActionStatus(str, Enum):
     """РЎС‚Р°С‚СѓСЃ РІС‹РїРѕР»РЅРµРЅРёСЏ РґРµР№СЃС‚РІРёСЏ."""
+
     SUCCESS = "success"
     FAILED = "failed"
     PENDING = "pending"
@@ -18,6 +20,7 @@ class ActionStatus(str, Enum):
 
 class OrderStatus(str, Enum):
     """РЎС‚Р°С‚СѓСЃ Р·Р°РєР°Р·Р° РІ ERP."""
+
     DRAFT = "draft"
     CONFIRMED = "confirmed"
     PROCESSING = "processing"
@@ -28,10 +31,13 @@ class OrderStatus(str, Enum):
 
 class OrderItem(BaseModel):
     """РџРѕР·РёС†РёСЏ Р·Р°РєР°Р·Р°."""
+
     productcode: str = Field(..., description="РљРѕРґ С‚РѕРІР°СЂР°/Р°СЂС‚РёРєСѓР»")
     description: str = Field(default="", description="РћРїРёСЃР°РЅРёРµ С‚РѕРІР°СЂР°")
     quantity: Decimal = Field(..., gt=0, description="РљРѕР»РёС‡РµСЃС‚РІРѕ")
-    unitprice: Decimal | None = Field(default=None, ge=0, description="Р¦РµРЅР° Р·Р° РµРґРёРЅРёС†Сѓ")
+    unitprice: Decimal | None = Field(
+        default=None, ge=0, description="Р¦РµРЅР° Р·Р° РµРґРёРЅРёС†Сѓ"
+    )
     unit: str = Field(default="С€С‚", description="Р•РґРёРЅРёС†Р° РёР·РјРµСЂРµРЅРёСЏ")
 
     model_config = ConfigDict(
@@ -49,6 +55,7 @@ class OrderItem(BaseModel):
 
 class ERPOrder(BaseModel):
     """Р—Р°РєР°Р· РІ ERP СЃРёСЃС‚РµРјРµ."""
+
     id: UUID = Field(..., description="UUID Р·Р°РєР°Р·Р° РІ ERP")
     number: str = Field(..., description="РќРѕРјРµСЂ Р·Р°РєР°Р·Р°")
     status: OrderStatus = Field(default=OrderStatus.DRAFT, description="РЎС‚Р°С‚СѓСЃ Р·Р°РєР°Р·Р°")
@@ -76,8 +83,11 @@ class ERPOrder(BaseModel):
 
 class ActionResult(BaseModel):
     """Р РµР·СѓР»СЊС‚Р°С‚ РІС‹РїРѕР»РЅРµРЅРёСЏ РґРµР№СЃС‚РІРёСЏ."""
+
     status: ActionStatus = Field(..., description="РЎС‚Р°С‚СѓСЃ РІС‹РїРѕР»РЅРµРЅРёСЏ")
-    erp_entity_id: UUID | None = Field(default=None, description="UUID СЃРѕР·РґР°РЅРЅРѕР№ СЃСѓС‰РЅРѕСЃС‚Рё")
+    erp_entity_id: UUID | None = Field(
+        default=None, description="UUID СЃРѕР·РґР°РЅРЅРѕР№ СЃСѓС‰РЅРѕСЃС‚Рё"
+    )
     message: str | None = Field(default=None, description="РЎРѕРѕР±С‰РµРЅРёРµ РѕР± СѓСЃРїРµС…Рµ")
     error: str | None = Field(default=None, description="РЎРѕРѕР±С‰РµРЅРёРµ РѕР± РѕС€РёР±РєРµ")
 
@@ -93,9 +103,9 @@ class ActionResult(BaseModel):
     )
 
 
-
 class InvoiceStatus(str, Enum):
     """Статус счёта в ERP."""
+
     DRAFT = "draft"
     SENT = "sent"
     PENDING = "pending"
@@ -106,6 +116,7 @@ class InvoiceStatus(str, Enum):
 
 class TicketPriority(int, Enum):
     """риоритет тикета."""
+
     LOW = 1
     MEDIUM = 2
     HIGH = 3
@@ -114,6 +125,7 @@ class TicketPriority(int, Enum):
 
 class TicketStatus(str, Enum):
     """Статус тикета в системе поддержки."""
+
     OPEN = "open"
     IN_PROGRESS = "in_progress"
     WAITING = "waiting"
@@ -123,6 +135,7 @@ class TicketStatus(str, Enum):
 
 class ERPInvoice(BaseModel):
     """Счёт в ERP системе."""
+
     id: UUID = Field(..., description="UUID счёта в ERP")
     number: str = Field(..., description="омер счёта")
     status: InvoiceStatus = Field(..., description="Статус счёта")
@@ -147,6 +160,7 @@ class ERPInvoice(BaseModel):
 
 class ERPTicket(BaseModel):
     """Тикет в системе поддержки."""
+
     id: UUID = Field(..., description="UUID тикета")
     number: str = Field(..., description="омер тикета")
     subject: str = Field(..., description="Тема тикета")
@@ -171,8 +185,10 @@ class ERPTicket(BaseModel):
         }
     )
 
+
 class EmailActionResult(BaseModel):
     """Р РµР·СѓР»СЊС‚Р°С‚ РґРµР№СЃС‚РІРёСЏ РїРѕ email РґР»СЏ API РѕС‚РІРµС‚Р°."""
+
     action_id: int = Field(..., description="ID РґРµР№СЃС‚РІРёСЏ РІ Р‘Р”")
     email_id: int = Field(..., description="ID email")
     action_type: str = Field(..., description="РўРёРї РґРµР№СЃС‚РІРёСЏ")

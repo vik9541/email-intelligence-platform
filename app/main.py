@@ -3,10 +3,11 @@ Email Service - Main Application Entry Point.
 
 Production-ready FastAPI application for email analysis.
 """
+
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, status
@@ -26,8 +27,10 @@ logger = logging.getLogger(__name__)
 # Health Check Models
 # =============================================================================
 
+
 class HealthResponse(BaseModel):
     """Basic health check response."""
+
     status: str
     timestamp: str
     version: str = "1.0.0"
@@ -35,6 +38,7 @@ class HealthResponse(BaseModel):
 
 class ReadinessResponse(BaseModel):
     """Detailed readiness check response."""
+
     status: str
     timestamp: str
     version: str = "1.0.0"
@@ -43,6 +47,7 @@ class ReadinessResponse(BaseModel):
 
 class DependencyStatus(BaseModel):
     """Status of a single dependency."""
+
     status: str
     latency_ms: float | None = None
     error: str | None = None
@@ -52,8 +57,10 @@ class DependencyStatus(BaseModel):
 # Application State
 # =============================================================================
 
+
 class AppState:
     """Application state for health checks."""
+
     db_connected: bool = False
     kafka_connected: bool = False
     redis_connected: bool = False
@@ -67,13 +74,14 @@ app_state = AppState()
 # Lifespan Management
 # =============================================================================
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info("Starting email-service...")
-    app_state.startup_time = datetime.now(timezone.utc)
-    
+    app_state.startup_time = datetime.now(UTC)
+
     # Initialize connections (stubbed for now)
     try:
         # In production, these would be actual connection checks
@@ -83,9 +91,9 @@ async def lifespan(app: FastAPI):
         logger.info("All connections initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize connections: {e}")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down email-service...")
     app_state.db_connected = False
@@ -121,6 +129,7 @@ app.add_middleware(
 # Health Check Endpoints
 # =============================================================================
 
+
 @app.get(
     "/health",
     response_model=HealthResponse,
@@ -131,13 +140,13 @@ app.add_middleware(
 async def health_check() -> HealthResponse:
     """
     Liveness probe endpoint.
-    
+
     Returns 200 OK if the service is running.
     Used by Kubernetes liveness probe.
     """
     return HealthResponse(
         status="alive",
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
 
@@ -151,46 +160,46 @@ async def health_check() -> HealthResponse:
 async def readiness_check() -> ReadinessResponse:
     """
     Readiness probe endpoint.
-    
+
     Returns 200 OK if the service is ready to accept traffic.
     Checks database, Kafka, and Redis connections.
     Used by Kubernetes readiness probe.
     """
     checks: dict[str, Any] = {}
     all_healthy = True
-    
+
     # Check database connection
     db_status = await check_database()
     checks["database"] = db_status
     if db_status["status"] != "connected":
         all_healthy = False
-    
+
     # Check Kafka connection
     kafka_status = await check_kafka()
     checks["kafka"] = kafka_status
     if kafka_status["status"] != "connected":
         all_healthy = False
-    
+
     # Check Redis connection (optional)
     redis_status = await check_redis()
     checks["redis"] = redis_status
     # Redis is optional, don't fail readiness if unavailable
-    
+
     overall_status = "ready" if all_healthy else "degraded"
-    
+
     response = ReadinessResponse(
         status=overall_status,
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         checks=checks,
     )
-    
+
     if not all_healthy:
         # Return 503 if critical dependencies are down
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=response.model_dump(),
         )
-    
+
     return response
 
 
@@ -209,16 +218,18 @@ async def liveness() -> dict[str, str]:
 # Dependency Check Functions
 # =============================================================================
 
+
 async def check_database() -> dict[str, Any]:
     """Check database connectivity."""
     import time
+
     start = time.perf_counter()
-    
+
     try:
         # In production, execute a simple query
         # async with get_db_session() as session:
         #     await session.execute(text("SELECT 1"))
-        
+
         # Stubbed check using app state
         if app_state.db_connected:
             latency = (time.perf_counter() - start) * 1000
@@ -242,14 +253,15 @@ async def check_database() -> dict[str, Any]:
 async def check_kafka() -> dict[str, Any]:
     """Check Kafka connectivity."""
     import time
+
     start = time.perf_counter()
-    
+
     try:
         # In production, check Kafka broker connectivity
         # producer = AIOKafkaProducer(...)
         # await producer.start()
         # await producer.stop()
-        
+
         if app_state.kafka_connected:
             latency = (time.perf_counter() - start) * 1000
             return {
@@ -272,13 +284,14 @@ async def check_kafka() -> dict[str, Any]:
 async def check_redis() -> dict[str, Any]:
     """Check Redis connectivity (optional)."""
     import time
+
     start = time.perf_counter()
-    
+
     try:
         # In production, ping Redis
         # redis = await aioredis.from_url(...)
         # await redis.ping()
-        
+
         if app_state.redis_connected:
             latency = (time.perf_counter() - start) * 1000
             return {
@@ -302,6 +315,7 @@ async def check_redis() -> dict[str, Any]:
 # Metrics Endpoint (for Prometheus)
 # =============================================================================
 
+
 @app.get(
     "/metrics",
     tags=["Monitoring"],
@@ -311,7 +325,7 @@ async def check_redis() -> dict[str, Any]:
 async def metrics():
     """
     Prometheus metrics endpoint.
-    
+
     In production, use prometheus_client library:
     from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
@@ -343,6 +357,7 @@ email_service_request_duration_seconds_bucket{le="+Inf"} 0
 # API Routes
 # =============================================================================
 
+
 @app.get("/", tags=["Root"])
 async def root():
     """Root endpoint with service info."""
@@ -364,7 +379,7 @@ async def analysis_status():
         "status": "operational",
         "version": "1.0.0",
         "uptime_seconds": (
-            (datetime.now(timezone.utc) - app_state.startup_time).total_seconds()
+            (datetime.now(UTC) - app_state.startup_time).total_seconds()
             if app_state.startup_time
             else 0
         ),
@@ -374,6 +389,7 @@ async def analysis_status():
 # =============================================================================
 # Error Handlers
 # =============================================================================
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -394,7 +410,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host=os.getenv("HOST", "0.0.0.0"),

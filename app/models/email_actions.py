@@ -1,6 +1,7 @@
 """
 ORM модель для таблицы emailactions - хранение действий по email.
 """
+
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -25,6 +26,7 @@ class EmailAction(Base):
     ORM модель для таблицы emailactions.
     Хранит информацию о действиях, выполненных по результатам анализа email.
     """
+
     __tablename__ = "emailactions"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
