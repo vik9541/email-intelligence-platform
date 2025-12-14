@@ -1,0 +1,77 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: email-intelligence-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: email-intelligence
+  
+  minReplicas: 2  # Always at least 2 for redundancy
+  maxReplicas: 20  # Cost control
+  
+  metrics:
+  # CPU-based scaling
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70  # Scale up if > 70%
+  
+  # Memory-based scaling
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80  # Scale up if > 80%
+  
+  # Custom metrics (optional, requires metrics-server)
+  - type: Pods
+    pods:
+      metric:
+        name: http_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "1000"  # Scale if avg > 1000 req/sec per pod
+  
+  behavior:
+    # Scale down slowly (be conservative)
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10  # Remove max 10% of pods
+        periodSeconds: 60
+      - type: Pods
+        value: 2  # Remove max 2 pods
+        periodSeconds: 60
+      selectPolicy: Min  # Choose the smallest change
+    
+    # Scale up aggressively (respond to spikes)
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100  # Double pods if needed
+        periodSeconds: 30
+      - type: Pods
+        value: 5  # Add max 5 pods
+        periodSeconds: 30
+      selectPolicy: Max  # Choose the largest change
+---
+# Vertical Pod Autoscaler (optional, for right-sizing)
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: email-intelligence-vpa
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: email-intelligence
+  updatePolicy:
+    updateMode: "Auto"
