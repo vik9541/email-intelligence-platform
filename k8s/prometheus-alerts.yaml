@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alerts
+  namespace: default
+data:
+  alerts.yml: |
+    groups:
+    - name: email-intelligence-alerts
+      interval: 30s
+      rules:
+      
+      # High error rate
+      - alert: HighErrorRate
+        expr: |
+          (sum(rate(errors_total[5m])) by (error_type) / sum(rate(http_requests_total[5m]))) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+      
+      # High latency
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP latency"
+          description: "P95 latency is {{ $value }}s"
+      
+      # Pod restarts
+      - alert: PodRestarts
+        expr: |
+          increase(kube_pod_container_status_restarts_total{pod=~"email-.*"}[1h]) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod restarted too many times"
+      
+      # Database connection pool exhausted
+      - alert: DBPoolExhausted
+        expr: |
+          active_connections > 90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection pool almost exhausted"

@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: default
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: postgres-backup
+          containers:
+          - name: postgres-backup
+            image: postgres:15
+            env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: password
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: access_key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: secret_key
+            command:
+            - /bin/sh
+            - -c
+            - |
+              BACKUP_FILE="backup-$(date +%Y%m%d-%H%M%S).sql"
+              pg_dump -h postgres -U postgres email_db > /tmp/$BACKUP_FILE
+              gzip /tmp/$BACKUP_FILE
+              aws s3 cp /tmp/$BACKUP_FILE.gz s3://email-backups/$BACKUP_FILE.gz
+              rm /tmp/$BACKUP_FILE.gz
+              echo "✅ Backup completed: $BACKUP_FILE"
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgres-backup
+  namespace: default
