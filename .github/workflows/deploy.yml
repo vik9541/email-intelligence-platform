@@ -11,12 +11,7 @@
 name: Deploy to Kubernetes
 
 on:
-  # Auto-deploy on push to main (only after test.yml passes)
-  push:
-    branches:
-      - main
-
-  # Manual trigger for controlled deployments
+  # Manual trigger for controlled deployments (recommended for initial setup)
   workflow_dispatch:
     inputs:
       environment:
