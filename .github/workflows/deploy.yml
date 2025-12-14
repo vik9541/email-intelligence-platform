@@ -1,0 +1,299 @@
+# =============================================================================
+# GitHub Actions: Deploy Pipeline
+# =============================================================================
+# Triggers:
+#   - Automatic: on push to main (after tests pass)
+#   - Manual: workflow_dispatch for staging/production
+#   - Release: on tagged release
+# Deploys to Kubernetes cluster
+# =============================================================================
+
+name: Deploy to Kubernetes
+
+on:
+  # Auto-deploy on push to main (only after test.yml passes)
+  push:
+    branches:
+      - main
+
+  # Manual trigger for controlled deployments
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: true
+        default: 'latest'
+        type: string
+      dry_run:
+        description: 'Dry run (do not apply changes)'
+        required: false
+        default: false
+        type: boolean
+
+  # Deploy on release
+  release:
+    types: [published]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+  IMAGE_NAME: email-service
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job: Build and Push Docker Image (for push to main)
+  # ---------------------------------------------------------------------------
+  build:
+    name: "🏗️ Build & Push Image"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Log in to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: 📋 Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  # ---------------------------------------------------------------------------
+  # Job: Deploy to Kubernetes
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: "🚀 Deploy to ${{ github.event.inputs.environment || 'staging' }}"
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: |
+      always() && 
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    timeout-minutes: 10
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.28.0'
+
+      - name: 🔐 Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: 🔍 Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: 🏷️ Set image tag
+        id: set-tag
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            TAG="sha-${GITHUB_SHA::7}"
+          fi
+          echo "IMAGE_TAG=${TAG}" >> $GITHUB_OUTPUT
+          echo "📦 Deploying image tag: ${TAG}"
+
+      - name: 📝 Update deployment image
+        run: |
+          sed -i "s|your-registry/email-service:latest|${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.set-tag.outputs.IMAGE_TAG }}|g" k8s/deployment.yaml
+          echo "Updated deployment manifest:"
+          grep -A2 "image:" k8s/deployment.yaml
+
+      - name: 🚀 Apply Kubernetes manifests
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          echo "📦 Applying namespace..."
+          kubectl apply -f k8s/namespace.yaml
+          
+          echo "⚙️ Applying configmap..."
+          kubectl apply -f k8s/configmap.yaml
+          
+          echo "🔒 Applying network policies..."
+          kubectl apply -f k8s/networkpolicy.yaml
+          
+          echo "🚀 Applying deployment..."
+          kubectl apply -f k8s/deployment.yaml
+          
+          echo "🌐 Applying service..."
+          kubectl apply -f k8s/service.yaml
+          
+          echo "🔀 Applying ingress..."
+          kubectl apply -f k8s/ingress.yaml
+          
+          echo "📈 Applying HPA..."
+          kubectl apply -f k8s/hpa.yaml
+
+      - name: 🔄 Dry run - Show changes
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "=== DRY RUN MODE ==="
+          for file in k8s/*.yaml; do
+            echo "--- $file ---"
+            kubectl apply --dry-run=client -f "$file"
+          done
+
+      - name: ⏳ Wait for rollout
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          kubectl rollout status deployment/email-service \
+            -n email-service \
+            --timeout=300s
+
+      - name: ✅ Verify deployment
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          echo "=== Deployment Status ==="
+          kubectl get deployment email-service -n email-service -o wide
+          
+          echo ""
+          echo "=== Pods Status ==="
+          kubectl get pods -n email-service -l app.kubernetes.io/name=email-service
+          
+          echo ""
+          echo "=== Service Status ==="
+          kubectl get svc -n email-service
+
+      - name: 🏥 Run smoke tests
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          # Wait for pods to be ready
+          kubectl wait --for=condition=ready pod \
+            -l app.kubernetes.io/name=email-service \
+            -n email-service \
+            --timeout=120s
+          
+          # Port-forward and test
+          kubectl port-forward svc/email-service 8080:8000 -n email-service &
+          PF_PID=$!
+          sleep 5
+          
+          # Health check
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health)
+          kill $PF_PID 2>/dev/null || true
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Health check failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+          echo "✅ Health check passed!"
+
+      - name: 📝 Create deployment annotation
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          kubectl annotate deployment email-service \
+            -n email-service \
+            kubernetes.io/change-cause="Deployed ${{ steps.set-tag.outputs.IMAGE_TAG }} via GitHub Actions" \
+            --overwrite
+
+      - name: 📊 Deployment Summary
+        if: always()
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | ${{ github.event.inputs.environment || 'staging' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ steps.set-tag.outputs.IMAGE_TAG }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Job: Rollback on Failure
+  # ---------------------------------------------------------------------------
+  rollback:
+    name: "⏪ Rollback"
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: failure() && github.event.inputs.dry_run != 'true'
+
+    steps:
+      - name: 🔐 Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: ⏪ Rollback to previous version
+        run: |
+          echo "⚠️ Deployment failed, rolling back..."
+          kubectl rollout undo deployment/email-service -n email-service
+          kubectl rollout status deployment/email-service -n email-service --timeout=300s
+
+      - name: ✅ Verify rollback
+        run: |
+          kubectl get deployment email-service -n email-service -o wide
+          kubectl get pods -n email-service -l app.kubernetes.io/name=email-service
+
+  # ---------------------------------------------------------------------------
+  # Job: Notify
+  # ---------------------------------------------------------------------------
+  notify:
+    name: "📢 Notify"
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+
+    steps:
+      - name: 📢 Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ needs.deploy.result }}
+          channel: '#deployments'
+          fields: repo,message,commit,author,workflow
+          text: |
+            🚀 Deployment to ${{ github.event.inputs.environment || 'staging' }}
+            📦 Image: ${{ env.IMAGE_NAME }}
+            📊 Status: ${{ needs.deploy.result }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true

@@ -1,0 +1,283 @@
+# =============================================================================
+# GitHub Actions: Test Pipeline
+# =============================================================================
+# Runs on every push to main and on all PRs
+# Executes pytest with coverage, linting, and Docker build validation
+# Target: 170+ test cases, < 5 min execution time
+# =============================================================================
+
+name: Test Suite
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job: Python Tests with Coverage
+  # ---------------------------------------------------------------------------
+  test-python:
+    name: "🧪 Python Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: 🧪 Run pytest with coverage
+        env:
+          DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          TESTING: "true"
+          SECRET_KEY: "test-secret-key-for-ci"
+        run: |
+          pytest tests/ \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -v \
+            --tb=short \
+            --durations=10 \
+            -x
+
+      - name: 📊 Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+        continue-on-error: true
+
+      - name: 📈 Coverage Report Summary
+        if: always()
+        run: |
+          echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f coverage.xml ]; then
+            python -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('coverage.xml')
+          root = tree.getroot()
+          line_rate = float(root.attrib.get('line-rate', 0)) * 100
+          print(f'| Metric | Value |')
+          print(f'|--------|-------|')
+          print(f'| Line Coverage | {line_rate:.1f}% |')
+            " >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Job: Linting and Code Quality
+  # ---------------------------------------------------------------------------
+  lint:
+    name: "🔍 Lint & Format"
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: 📦 Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy
+
+      - name: 🔍 Run Ruff linter
+        run: |
+          ruff check app/ tests/ --output-format=github
+
+      - name: 🎨 Check Ruff formatting
+        run: |
+          ruff format app/ tests/ --check --diff
+
+      - name: 🔬 Run MyPy type checker
+        run: |
+          mypy app/ --ignore-missing-imports --no-error-summary
+        continue-on-error: true
+
+  # ---------------------------------------------------------------------------
+  # Job: Docker Build Test
+  # ---------------------------------------------------------------------------
+  test-docker:
+    name: "🐳 Docker Build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🐳 Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: email-service:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: 🔍 Test Docker image
+        run: |
+          # Verify image was built
+          docker images email-service:test
+          
+          # Test that container starts
+          docker run --rm -d --name test-container \
+            -e DATABASE_URL="postgresql+asyncpg://test:test@localhost/test" \
+            -e SECRET_KEY="test-key" \
+            email-service:test || true
+          
+          # Give it a moment
+          sleep 2
+          
+          # Check if it's running (may fail without DB, that's ok)
+          docker ps -a | grep test-container || true
+          
+          # Cleanup
+          docker stop test-container 2>/dev/null || true
+          
+          echo "✅ Docker image builds successfully"
+
+      - name: 📏 Check image size
+        run: |
+          SIZE=$(docker images email-service:test --format "{{.Size}}")
+          echo "Docker image size: $SIZE"
+          echo "## Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Size | $SIZE |" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Job: Security Scan (runs in parallel)
+  # ---------------------------------------------------------------------------
+  security:
+    name: "🔒 Security Scan"
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: 📦 Install security tools
+        run: |
+          pip install bandit safety pip-audit
+
+      - name: 🔒 Run Bandit security linter
+        run: |
+          bandit -r app/ -ll -ii -x tests/ -f json -o bandit-report.json || true
+          bandit -r app/ -ll -ii -x tests/ || true
+
+      - name: 🔍 Check dependencies for vulnerabilities
+        run: |
+          pip-audit -r requirements.txt || true
+        continue-on-error: true
+
+  # ---------------------------------------------------------------------------
+  # Job: All Checks Pass Gate
+  # ---------------------------------------------------------------------------
+  all-checks:
+    name: "✅ All Checks"
+    runs-on: ubuntu-latest
+    needs: [test-python, lint, test-docker, security]
+    if: always()
+
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [ "${{ needs.test-python.result }}" != "success" ]; then
+            echo "❌ Python tests failed"
+            exit 1
+          fi
+          if [ "${{ needs.lint.result }}" != "success" ]; then
+            echo "❌ Linting failed"
+            exit 1
+          fi
+          if [ "${{ needs.test-docker.result }}" != "success" ]; then
+            echo "❌ Docker build failed"
+            exit 1
+          fi
+          echo "✅ All required checks passed!"
+
+      - name: Summary
+        run: |
+          echo "## CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Tests | ${{ needs.test-python.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint & Format | ${{ needs.lint.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | ${{ needs.test-docker.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security.result == 'success' && '✅' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY

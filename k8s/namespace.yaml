@@ -1,0 +1,11 @@
+# =============================================================================
+# Kubernetes Namespace for email-service
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: email-service
+  labels:
+    app.kubernetes.io/name: email-service
+    app.kubernetes.io/component: namespace
+    environment: production

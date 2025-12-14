@@ -1,0 +1,58 @@
+# =============================================================================
+# ConfigMap for email-service - Non-sensitive configuration
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: email-service-config
+  namespace: email-service
+  labels:
+    app.kubernetes.io/name: email-service
+    app.kubernetes.io/component: config
+data:
+  # Application settings
+  APP_NAME: "email-service"
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  DEBUG: "false"
+
+  # Server settings
+  HOST: "0.0.0.0"
+  PORT: "8000"
+  WORKERS: "4"
+
+  # Database settings (non-sensitive)
+  DATABASE_HOST: "postgresql.database.svc.cluster.local"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "email_service"
+  DATABASE_POOL_SIZE: "20"
+  DATABASE_MAX_OVERFLOW: "10"
+
+  # Kafka settings
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.kafka.svc.cluster.local:29092"
+  KAFKA_CONSUMER_GROUP: "email-service-consumer"
+  KAFKA_TOPIC_EMAILS: "emails"
+  KAFKA_TOPIC_ANALYSIS: "email-analysis-results"
+
+  # Redis settings (for caching)
+  REDIS_HOST: "redis.redis.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+
+  # ERP Integration
+  ERP_API_BASE_URL: "http://erp-service.erp.svc.cluster.local:8080"
+  ERP_API_TIMEOUT: "30"
+  ERP_API_RETRY_COUNT: "3"
+
+  # ML/Analysis settings
+  ANALYSIS_BATCH_SIZE: "50"
+  ANALYSIS_TIMEOUT: "120"
+  ANALYSIS_MAX_RETRIES: "3"
+
+  # Prometheus metrics
+  METRICS_ENABLED: "true"
+  METRICS_PATH: "/metrics"
+
+  # CORS settings
+  CORS_ORIGINS: "*"
+  CORS_ALLOW_CREDENTIALS: "true"

@@ -1,0 +1,130 @@
+# ============================================
+# Email Intelligence Platform - CODEOWNERS
+# ============================================
+#
+# This file defines the code owners for different
+# parts of the repository. Code owners are automatically
+# requested for review when someone opens a pull request
+# that modifies code they own.
+#
+# Order matters: later patterns take precedence over earlier ones.
+# Each line is a file pattern followed by one or more owners.
+#
+# Documentation: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ============================================
+# DEFAULT OWNERS
+# ============================================
+# These owners will be the default owners for everything
+# in the repo unless a later match takes precedence.
+
+*                       @username/platform-team
+
+# ============================================
+# CORE APPLICATION
+# ============================================
+# Main application code - requires senior dev review
+
+/app/                   @username/backend-team
+/app/main.py           @username/tech-lead @username/backend-team
+/app/api/              @username/backend-team
+/app/services/         @username/backend-team @username/tech-lead
+/app/models/           @username/backend-team
+/app/core/             @username/backend-team @username/tech-lead
+
+# Critical services require tech lead approval
+/app/services/email_analyzer.py      @username/tech-lead
+/app/services/email_classifier.py    @username/tech-lead
+/app/services/erp_action_executor.py @username/tech-lead
+
+# ============================================
+# TESTS
+# ============================================
+# Test code - QA team ownership
+
+/tests/                @username/qa-team @username/backend-team
+/tests/unit/           @username/backend-team
+/tests/integration/    @username/qa-team
+/tests/e2e/            @username/qa-team
+
+# ============================================
+# INFRASTRUCTURE
+# ============================================
+# DevOps team owns infrastructure code
+
+/k8s/                  @username/devops-team
+/k8s/*.yaml            @username/devops-team @username/sre-team
+Dockerfile             @username/devops-team
+docker-compose.yml     @username/devops-team
+docker-compose*.yml    @username/devops-team
+
+# Security-sensitive K8s files require SRE review
+/k8s/secrets.yaml      @username/sre-team @username/security-team
+/k8s/networkpolicy.yaml @username/sre-team @username/security-team
+
+# ============================================
+# CI/CD
+# ============================================
+# DevOps owns CI/CD pipelines
+
+/.github/              @username/devops-team
+/.github/workflows/    @username/devops-team @username/sre-team
+/.github/CODEOWNERS    @username/tech-lead @username/devops-team
+
+# ============================================
+# MONITORING
+# ============================================
+# SRE owns monitoring configuration
+
+/grafana/              @username/sre-team @username/devops-team
+
+# ============================================
+# DOCUMENTATION
+# ============================================
+# Documentation can be updated by any team member
+# but critical docs need tech lead review
+
+/docs/                 @username/platform-team
+/docs/DEPLOYMENT.md    @username/devops-team @username/tech-lead
+/docs/GO_LIVE_CHECKLIST.md @username/devops-team @username/tech-lead
+README.md              @username/tech-lead
+CONTRIBUTING.md        @username/tech-lead
+
+# ============================================
+# CONFIGURATION
+# ============================================
+# Project configuration requires tech lead review
+
+pyproject.toml         @username/tech-lead @username/backend-team
+requirements.txt       @username/backend-team
+requirements-dev.txt   @username/backend-team
+.gitignore            @username/devops-team
+
+# ============================================
+# SECURITY
+# ============================================
+# Security-related files require security team review
+
+SECURITY.md            @username/security-team @username/tech-lead
+/.github/SECURITY.md   @username/security-team
+
+# ============================================
+# SCRIPTS
+# ============================================
+# Utility scripts
+
+/scripts/              @username/devops-team @username/backend-team
+
+# ============================================
+# TEAM ALIASES (for reference)
+# ============================================
+#
+# @username/platform-team    - All platform developers
+# @username/backend-team     - Backend developers
+# @username/devops-team      - DevOps engineers
+# @username/sre-team         - Site Reliability Engineers
+# @username/qa-team          - Quality Assurance
+# @username/security-team    - Security team
+# @username/tech-lead        - Technical lead(s)
+#
+# Replace 'username' with your GitHub org/username
