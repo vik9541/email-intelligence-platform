@@ -53,9 +53,34 @@ jobs:
           pip install -e .
           pip install -r requirements-dev.txt
 
-      - name: 🧪 Run pytest
+      - name: 🧪 Run pytest with coverage
         run: |
-          pytest tests/ -v --tb=short -x
+          pytest tests/ \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=60 \
+            -v \
+            --tb=short \
+            --durations=10 \
+            -x
+
+      - name: 📊 Coverage Report Summary
+        if: always()
+        run: |
+          echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f coverage.xml ]; then
+            python -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('coverage.xml')
+          root = tree.getroot()
+          line_rate = float(root.attrib.get('line-rate', 0)) * 100
+          print(f'| Metric | Value |')
+          print(f'|--------|-------|')
+          print(f'| Line Coverage | {line_rate:.1f}% |')
+            " >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: � Test Summary
         if: always()
