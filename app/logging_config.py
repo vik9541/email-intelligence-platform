@@ -1,10 +1,10 @@
 """Structured logging configuration for ELK stack."""
 
-import logging
 import json
+import logging
 from datetime import datetime
-from pythonjsonlogger import jsonlogger
 
+from pythonjsonlogger import jsonlogger
 
 # JSON logging for ELK
 logHandler = logging.StreamHandler()
@@ -29,7 +29,7 @@ def log_event(event_type: str, message: str, **kwargs):
 
 
 # Usage examples:
-# log_event("email_processed", "Email processed successfully", 
+# log_event("email_processed", "Email processed successfully",
 #           email_id="123", duration_ms=150, status="success")
-# log_event("error", "Failed to connect to database", 
+# log_event("error", "Failed to connect to database",
 #           error_type="ConnectionError", retry_count=3)

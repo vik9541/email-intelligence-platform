@@ -1,14 +1,15 @@
 """Load testing scenarios for email intelligence platform."""
 
-from locust import HttpUser, task, between
 import random
+
+from locust import HttpUser, between, task
 
 
 class EmailProcessingUser(HttpUser):
     """Standard email processing load."""
-    
+
     wait_time = between(1, 5)
-    
+
     @task(3)
     def process_email(self):
         """Simulate email processing."""
@@ -19,12 +20,12 @@ class EmailProcessingUser(HttpUser):
             "body": "This is a test email " * random.randint(1, 10)
         }
         self.client.post("/api/observations/analyze", json=payload)
-    
+
     @task(1)
     def health_check(self):
         """Periodic health check."""
         self.client.get("/health")
-    
+
     @task(1)
     def get_metrics(self):
         """Check metrics endpoint."""
@@ -33,9 +34,9 @@ class EmailProcessingUser(HttpUser):
 
 class EmailBurstUser(HttpUser):
     """Burst scenario - high volume."""
-    
+
     wait_time = between(0.5, 1.5)
-    
+
     @task
     def burst_emails(self):
         """Burst scenario - multiple emails rapidly."""
@@ -51,15 +52,15 @@ class EmailBurstUser(HttpUser):
 
 class StressTestUser(HttpUser):
     """Heavy load stress test."""
-    
+
     wait_time = between(0.1, 0.5)
-    
+
     @task
     def continuous_load(self):
         """Continuous heavy load."""
         payload = {
             "email_id": f"stress-{random.randint(1, 1000000)}",
-            "sender": f"stress@example.com",
+            "sender": "stress@example.com",
             "subject": "Stress test",
             "body": "X" * random.randint(100, 1000)
         }

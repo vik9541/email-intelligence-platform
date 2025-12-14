@@ -1,7 +1,7 @@
 """Prometheus monitoring metrics."""
 
-from prometheus_client import Counter, Histogram, Gauge
-import time
+
+from prometheus_client import Counter, Gauge, Histogram
 
 # Metrics
 http_requests_total = Counter(

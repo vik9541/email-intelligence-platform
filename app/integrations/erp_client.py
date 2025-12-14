@@ -188,8 +188,8 @@ class ERPClient:
         # алидация статуса
         try:
             invoice_status = InvoiceStatus(status)
-        except ValueError:
-            raise ERPValidationError(f"Invalid invoice status: {status}")
+        except ValueError as e:
+            raise ERPValidationError(f"Invalid invoice status: {status}") from e
 
         # STUB:  реальной реализации - HTTP запрос к ERP API
         self._invoice_counter = getattr(self, "_invoice_counter", 0) + 1

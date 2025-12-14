@@ -1,10 +1,8 @@
 """Business analytics and metrics tracking."""
 
-from prometheus_client import Counter, Histogram, Gauge, Info
 from datetime import datetime
-from typing import Dict
-import json
 
+from prometheus_client import Counter, Gauge, Histogram, Info
 
 # Business metrics
 emails_processed_total = Counter(
@@ -90,7 +88,7 @@ def track_email_processing(
     action_type: str = "unknown"
 ):
     """Track email processing metrics.
-    
+
     Args:
         email_id: Unique email identifier
         sender: Email sender address
@@ -100,27 +98,27 @@ def track_email_processing(
     """
     # Extract sender domain
     sender_domain = sender.split('@')[1] if '@' in sender else 'unknown'
-    
+
     # Track total processed
     emails_processed_total.labels(
         status=status,
         sender_domain=sender_domain,
         action_type=action_type
     ).inc()
-    
+
     # Track processing time
     processing_time.labels(
         status=status,
         action_type=action_type
     ).observe(duration)
-    
+
     # Update hourly peaks
     hour = datetime.now().hour
     peak_hours.labels(hour=str(hour)).inc()
-    
+
     # Update top senders
     top_senders.labels(sender_domain=sender_domain).inc()
-    
+
     # Track action distribution
     action_distribution.labels(
         action_type=action_type,
@@ -130,7 +128,7 @@ def track_email_processing(
 
 def track_retry(action_type: str, error_type: str):
     """Track retry attempts.
-    
+
     Args:
         action_type: Type of action being retried
         error_type: Type of error that caused retry
@@ -143,7 +141,7 @@ def track_retry(action_type: str, error_type: str):
 
 def update_success_rate(success_count: int, total_count: int):
     """Update rolling success rate.
-    
+
     Args:
         success_count: Number of successful operations
         total_count: Total number of operations
@@ -155,7 +153,7 @@ def update_success_rate(success_count: int, total_count: int):
 
 def update_queue_depth(depth: int):
     """Update current queue depth.
-    
+
     Args:
         depth: Current number of items in processing queue
     """
@@ -164,7 +162,7 @@ def update_queue_depth(depth: int):
 
 def update_average_latency(action_type: str, latency_ms: float):
     """Update average processing latency.
-    
+
     Args:
         action_type: Type of action
         latency_ms: Average latency in milliseconds
@@ -174,7 +172,7 @@ def update_average_latency(action_type: str, latency_ms: float):
 
 def track_database_query(query_type: str, duration: float):
     """Track database query performance.
-    
+
     Args:
         query_type: Type of query (select/insert/update/delete)
         duration: Query duration in seconds
@@ -184,7 +182,7 @@ def track_database_query(query_type: str, duration: float):
 
 def set_active_workers(count: int):
     """Set number of active workers.
-    
+
     Args:
         count: Number of active processing workers
     """
@@ -193,7 +191,7 @@ def set_active_workers(count: int):
 
 def update_cache_hit_rate(hits: int, total: int):
     """Update cache hit rate.
-    
+
     Args:
         hits: Number of cache hits
         total: Total cache requests
@@ -205,7 +203,7 @@ def update_cache_hit_rate(hits: int, total: int):
 
 def set_app_info(version: str, environment: str, region: str):
     """Set application information.
-    
+
     Args:
         version: Application version
         environment: Deployment environment
@@ -222,9 +220,9 @@ def set_app_info(version: str, environment: str, region: str):
 # Analytics aggregation functions
 class MetricsAggregator:
     """Aggregate metrics for reporting."""
-    
+
     @staticmethod
-    def get_hourly_stats() -> Dict:
+    def get_hourly_stats() -> dict:
         """Get hourly processing statistics."""
         # This would query Prometheus for hourly aggregates
         return {
@@ -233,18 +231,18 @@ class MetricsAggregator:
             'success_rate': 0.0,
             'average_latency_ms': 0.0
         }
-    
+
     @staticmethod
-    def get_top_senders(limit: int = 10) -> Dict:
+    def get_top_senders(limit: int = 10) -> dict:
         """Get top email senders."""
         # This would query Prometheus topk() function
         return {
             'timestamp': datetime.now().isoformat(),
             'top_senders': []  # Would come from Prometheus query
         }
-    
+
     @staticmethod
-    def get_daily_summary() -> Dict:
+    def get_daily_summary() -> dict:
         """Get daily summary statistics."""
         return {
             'date': datetime.now().date().isoformat(),
