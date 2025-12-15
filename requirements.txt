@@ -1,4 +1,4 @@
-# Core
+﻿# Core
 fastapi>=0.109.0
 uvicorn>=0.27.0
 sqlalchemy>=2.0.0
@@ -9,3 +9,18 @@ alembic>=1.13.0
 
 # HTTP client (для будущей интеграции ERP)
 httpx>=0.26.0
+
+# Rules Classifier (TASK-EMAIL-002)
+pyyaml==6.0.1
+
+# LLM & Embeddings (TASK-EMAIL-003)
+numpy==1.26.0
+
+# IMAP + Kafka (TASK-EMAIL-004)
+aioimaplib==1.0.1
+aiokafka==0.10.0
+
+# Testing
+pytest>=7.4.3
+pytest-asyncio>=0.23.2
+pytest-cov>=4.1.0

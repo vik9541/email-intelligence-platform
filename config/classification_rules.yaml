@@ -1,0 +1,392 @@
+# ============================================================================
+# EMAIL CLASSIFICATION RULES
+# ============================================================================
+# Project: 97v.ru Email Intelligence Platform
+# Purpose: Fast email categorization (target: <100ms, >85% accuracy)
+# Updated: 2025-12-15
+
+rules:
+  # ==========================================================================
+  # 1. INVOICE DETECTION
+  # ==========================================================================
+  invoice:
+    priority: 1
+    confidence_base: 0.90
+    
+    keywords:
+      # Russian
+      - "инв-"
+      - "инвойс"
+      - "счет"
+      - "счёт"
+      - "счет-фактура"
+      - "платеж"
+      - "оплата"
+      - "к оплате"
+      - "сумма к оплате"
+      - "итого к оплате"
+      - "номер счета"
+      - "дата счета"
+      - "инн"
+      - "кпп"
+      - "расчетный счет"
+      - "банк получателя"
+      
+      # English
+      - "invoice"
+      - "bill"
+      - "payment due"
+      - "amount due"
+      - "total amount"
+      - "account number"
+      - "invoice number"
+      - "invoice date"
+      - "ref #"
+      - "reference number"
+      - "vat"
+      - "tax id"
+      - "tax number"
+      - "billing"
+      - "payable"
+      - "remittance"
+      
+    patterns:
+      # Invoice numbers
+      - '^INV[-_#]\d{4,10}$'
+      - '^счет\s+№\s*\d+$'
+      - '^счёт\s+№\s*\d+$'
+      - 'INV[-_#]\d{4,}'
+      - 'СЧЁТ[-_№]\d{6,}'
+      - 'Invoice\s+#?\d{4,}'
+      
+      # Currency amounts
+      - '\$\d+[.,]\d{2}'
+      - '€\d+[.,]\d{2}'
+      - '₽\d+[.,]\d{2}'
+      - 'USD\s+\d+[.,]\d{2}'
+      - 'EUR\s+\d+[.,]\d{2}'
+      - 'RUB\s+\d+[.,]\d{2}'
+      
+      # Tax patterns
+      - 'НДС\s+\d+%'
+      - 'VAT\s+\d+%'
+      - 'ИНН[:=\s]+\d{10,12}'
+      - 'КПП[:=\s]+\d{9}'
+      
+    sender_patterns:
+      - '@.*billing.*'
+      - '@.*invoice.*'
+      - '@.*accounts.*'
+      - '@.*finance.*'
+      - '@.*accounting.*'
+      - '@.*payable.*'
+      - '@.*receivable.*'
+      
+    exclude_keywords:
+      - "invoice sample"
+      - "invoice template"
+      - "no invoice"
+      - "dummy invoice"
+      - "test invoice"
+      - "example invoice"
+      - "образец счета"
+      - "шаблон счета"
+
+  # ==========================================================================
+  # 2. PURCHASE ORDER DETECTION
+  # ==========================================================================
+  purchase_order:
+    priority: 2
+    confidence_base: 0.88
+    
+    keywords:
+      # Russian
+      - "заказ"
+      - "заявка"
+      - "закупка"
+      - "поставка"
+      - "товар"
+      - "количество"
+      - "артикул"
+      - "наименование"
+      - "единица измерения"
+      - "цена за единицу"
+      - "сумма"
+      
+      # English
+      - "purchase order"
+      - "po-"
+      - "po "
+      - "po#"
+      - "order number"
+      - "order id"
+      - "qty"
+      - "quantity"
+      - "item"
+      - "sku"
+      - "product code"
+      - "line item"
+      - "unit price"
+      - "part number"
+      - "delivery date"
+      - "ship to"
+      - "bill to"
+      
+    patterns:
+      - '^PO[-_#]\d{4,10}$'
+      - '^заказ\s+№\s*\d+$'
+      - 'PO[:\s]+\d{5,}'
+      - 'OrderID[:=\s]+\d+'
+      - 'Order\s+Number[:=\s]+\d+'
+      - 'SKU[-_]\w{2,}\d+'
+      - 'Артикул[:=\s]+[\w-]+'
+      - 'Qty[:=\s]+\d+'
+      
+    sender_patterns:
+      - '@.*supplier.*'
+      - '@.*vendor.*'
+      - '@.*procurement.*'
+      - '@.*orders.*'
+      - '@.*purchasing.*'
+      - '@.*supply.*'
+
+  # ==========================================================================
+  # 3. SUPPORT/TICKET DETECTION
+  # ==========================================================================
+  support:
+    priority: 3
+    confidence_base: 0.85
+    
+    keywords:
+      # Russian
+      - "помощь"
+      - "проблема"
+      - "ошибка"
+      - "не работает"
+      - "сломалось"
+      - "жалоба"
+      - "претензия"
+      - "возврат"
+      - "рекламация"
+      - "срочно"
+      - "критично"
+      
+      # English
+      - "help"
+      - "issue"
+      - "problem"
+      - "bug"
+      - "error"
+      - "ticket"
+      - "support"
+      - "urgent"
+      - "asap"
+      - "critical"
+      - "broken"
+      - "not working"
+      - "crash"
+      - "cannot access"
+      - "complaint"
+      - "refund"
+      - "return"
+      - "failed"
+      - "failure"
+      - "down"
+      - "outage"
+      
+    patterns:
+      - '^TICKET[-_#]\d+$'
+      - '^[A-Z]{2,3}[-_]\d{6}$'
+      - 'Error\s+(code|#)?[:=\s]*\d+'
+      - 'Status code[:=\s]*\d{3}'
+      - 'Exception[:=\s]+'
+      - 'Stack trace'
+      - 'Ошибка\s+\d+'
+      - 'Код\s+ошибки[:=\s]*\d+'
+      
+    sender_patterns:
+      - '@.*support.*'
+      - '@.*help.*'
+      - '@.*service.*'
+      - '@.*customer.*'
+      - '@.*desk.*'
+      - '@.*ticket.*'
+
+  # ==========================================================================
+  # 4. SALES/QUOTE DETECTION
+  # ==========================================================================
+  sales:
+    priority: 4
+    confidence_base: 0.82
+    
+    keywords:
+      # Russian
+      - "коммерческое предложение"
+      - "кп"
+      - "предложение"
+      - "расценка"
+      - "прайс"
+      - "цена"
+      - "скидка"
+      - "акция"
+      - "специальное предложение"
+      
+      # English
+      - "quote"
+      - "quotation"
+      - "proposal"
+      - "offer"
+      - "rate"
+      - "pricing"
+      - "special price"
+      - "discount"
+      - "promotion"
+      - "deal"
+      - "interested"
+      - "request for quote"
+      - "rfq"
+      - "rfp"
+      - "request for proposal"
+      - "opportunity"
+      - "lead"
+      - "prospect"
+      
+    patterns:
+      - '^QUOTE[-_#]\d{4,}$'
+      - '^КП[-_№]\d{4,}$'
+      - 'Quote\s*ID[:=\s]+\d+'
+      - 'Proposal\s+#?\d+'
+      - '\d+%\s+(discount|скидка)'
+      
+    sender_patterns:
+      - '@.*sales.*'
+      - '@.*business.*'
+      - '@.*commercial.*'
+      - '@.*bd.*'
+      - '@.*development.*'
+
+  # ==========================================================================
+  # 5. HR/ADMIN DETECTION
+  # ==========================================================================
+  hr:
+    priority: 5
+    confidence_base: 0.80
+    
+    keywords:
+      # Russian
+      - "персонал"
+      - "сотрудник"
+      - "зарплата"
+      - "оклад"
+      - "премия"
+      - "отпуск"
+      - "больничный"
+      - "найм"
+      - "увольнение"
+      - "адаптация"
+      - "обучение"
+      - "тренинг"
+      - "аттестация"
+      - "кадры"
+      
+      # English
+      - "hr"
+      - "human resources"
+      - "employee"
+      - "staff"
+      - "personnel"
+      - "salary"
+      - "compensation"
+      - "benefits"
+      - "vacation"
+      - "leave"
+      - "holiday"
+      - "pto"
+      - "paid time off"
+      - "sick leave"
+      - "training"
+      - "onboarding"
+      - "performance"
+      - "review"
+      - "appraisal"
+      - "contract"
+      - "policy"
+      - "compliance"
+      - "recruitment"
+      - "hiring"
+      - "termination"
+      
+    sender_patterns:
+      - '@.*hr.*'
+      - '@.*human.*'
+      - '@.*people.*'
+      - '@.*talent.*'
+      - '@.*recruiting.*'
+      - '@.*recruitment.*'
+
+  # ==========================================================================
+  # 6. NEWSLETTER/MARKETING DETECTION
+  # ==========================================================================
+  newsletter:
+    priority: 6
+    confidence_base: 0.75
+    
+    keywords:
+      # Russian
+      - "рассылка"
+      - "новости"
+      - "подписка"
+      - "отписаться"
+      - "подписаться"
+      
+      # English
+      - "newsletter"
+      - "unsubscribe"
+      - "subscribe"
+      - "mailing list"
+      - "update"
+      - "digest"
+      - "notification"
+      - "announcement"
+      
+    patterns:
+      - 'unsubscribe'
+      - 'отписаться'
+      
+    sender_patterns:
+      - '@.*newsletter.*'
+      - '@.*marketing.*'
+      - '@.*news.*'
+      - 'noreply@.*'
+      - 'no-reply@.*'
+
+# ============================================================================
+# DEFAULT RULES
+# ============================================================================
+default:
+  priority: 7
+  confidence_base: 0.50
+  category: "other"
+
+# ============================================================================
+# GLOBAL SETTINGS
+# ============================================================================
+settings:
+  # Text processing
+  case_insensitive: true
+  
+  # Confidence thresholds
+  min_confidence: 0.5
+  high_confidence_threshold: 0.85
+  
+  # Scoring weights (must sum to 1.0)
+  keyword_weight: 0.3
+  pattern_weight: 0.5
+  sender_weight: 0.2
+  
+  # Performance limits
+  max_keywords_check: 50
+  max_patterns_check: 20
+  
+  # Logging
+  log_level: "INFO"
